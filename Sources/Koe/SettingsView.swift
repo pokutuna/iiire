@@ -1,8 +1,9 @@
 import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable {
-    case general, recognition, output, advanced
+    case general, recognition, output, apps, advanced
 }
 
 /// 開いているタブ。画面の確認用に外からも切り替える
@@ -28,6 +29,9 @@ struct SettingsView: View {
             OutputSettings()
                 .tabItem { Label("Output", systemImage: "text.cursor") }
                 .tag(SettingsTab.output)
+            AppRulesSettings()
+                .tabItem { Label("Apps", systemImage: "app.badge") }
+                .tag(SettingsTab.apps)
             AdvancedSettings()
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
                 .tag(SettingsTab.advanced)
@@ -272,8 +276,20 @@ private struct RecognitionSettings: View {
 
 private struct OutputSettings: View {
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
+    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
     @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = 10
     @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 300
+    @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
+
+    private var base: OutputConfig {
+        OutputConfig(output: OutputMethod(rawValue: outputMethod) ?? .paste,
+                     keystroke: PasteKeystroke(rawValue: pasteKeystroke) ?? .rightCommand)
+    }
+
+    /// 既定とルールで実際に使う設定。どの欄を出すかの判断に使う
+    private var configs: [OutputConfig] {
+        [base] + AppRule.decode(appRulesJSON).map { OutputConfig.resolve(bundleID: $0.bundleID, rules: [$0], default: base) }
+    }
 
     var body: some View {
         Form {
@@ -281,13 +297,25 @@ private struct OutputSettings: View {
                 Picker("Transcribed Text", selection: $outputMethod) {
                     ForEach(OutputMethod.allCases) { Text($0.label).tag($0.rawValue) }
                 }
+                if base.output != .clipboard {
+                    Picker("Paste with", selection: $pasteKeystroke) {
+                        ForEach(PasteKeystroke.defaultChoices) { Text($0.label).tag($0.rawValue) }
+                    }
+                }
+            } footer: {
+                if configs.contains(where: { $0.output != .clipboard && $0.keystroke == .appleScript }) {
+                    Text("AppleScript works regardless of the keyboard layout. macOS asks for permission to control System Events the first time.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
 
-            if outputMethod != OutputMethod.clipboard.rawValue {
+            if configs.contains(where: { $0.output != .clipboard }) {
                 Section {
-                    msField("Key event interval for ⌘V", value: $pasteKeyIntervalMs,
-                            range: Defaults.pasteKeyIntervalRange, step: 5)
-                    if outputMethod == OutputMethod.paste.rawValue {
+                    if configs.contains(where: { $0.output != .clipboard && $0.keystroke != .appleScript }) {
+                        msField("Key event interval for ⌘V", value: $pasteKeyIntervalMs,
+                                range: Defaults.pasteKeyIntervalRange, step: 5)
+                    }
+                    if configs.contains(where: { $0.output == .paste }) {
                         msField("Restore clipboard after", value: $clipboardRestoreDelayMs,
                                 range: Defaults.clipboardRestoreDelayRange, step: 50)
                     }
@@ -315,6 +343,179 @@ private struct OutputSettings: View {
                 Stepper("", value: value, in: range, step: step).labelsHidden()
             }
         }
+    }
+}
+
+// MARK: - アプリ: 入力先のアプリごとのルール
+
+private struct AppRulesSettings: View {
+    @EnvironmentObject var state: AppState
+    @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
+    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+    @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
+    @State private var runningApps: [NSRunningApplication] = []
+
+    /// 「出力」タブの設定。ルールの「既定」はこれに従う
+    private var base: OutputConfig {
+        OutputConfig(output: OutputMethod(rawValue: outputMethod) ?? .paste,
+                     keystroke: PasteKeystroke(rawValue: pasteKeystroke) ?? .rightCommand)
+    }
+
+    private var rules: Binding<[AppRule]> {
+        Binding(get: { AppRule.decode(appRulesJSON) }, set: { appRulesJSON = AppRule.encode($0) })
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(rules) { $rule in
+                    AppRuleRow(rule: $rule, base: base, onRecordingChange: { recording in
+                        // 送るキーを記録している間は、録音のホットキーを止める
+                        if recording { state.suspendHotkey() } else { _ = state.applyHotkey() }
+                    }, onRemove: {
+                        rules.wrappedValue.removeAll { $0.bundleID == rule.bundleID }
+                    })
+                }
+                LabeledContent {
+                    addAppMenu
+                } label: {
+                    if rules.wrappedValue.isEmpty {
+                        Text("No rules").foregroundStyle(.secondary)
+                    }
+                }
+            } footer: {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("When the app in front has a rule, the rule overrides the settings in the Output tab. Items set to Default follow the Output tab.")
+                    Text("A custom key is sent instead of ⌘V each time you dictate, so choose the key that pastes in that app. It must include ⌃, ⌥, ⇧ or ⌘ (or be an F key). Return, Tab, Esc, Delete, ⌘Q, ⌘W, ⌘H and ⌘M cannot be used.")
+                }
+                .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .settingsForm()
+        .onAppear(perform: refreshRunningApps)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshRunningApps()
+        }
+    }
+
+    /// 起動中のアプリから選ぶか、アプリケーションフォルダから選ぶ
+    private var addAppMenu: some View {
+        let added = Set(rules.wrappedValue.map(\.bundleID))
+        let candidates = runningApps.filter { !added.contains($0.bundleIdentifier ?? "") }
+        return Menu("Add App") {
+            ForEach(candidates, id: \.processIdentifier) { app in
+                Button {
+                    addRule(bundleID: app.bundleIdentifier!, name: app.localizedName ?? app.bundleIdentifier!)
+                } label: {
+                    Label { Text(app.localizedName ?? app.bundleIdentifier!) } icon: {
+                        Image(nsImage: AppIcon.image(for: app.bundleIdentifier!, size: 16))
+                    }
+                }
+            }
+            if !candidates.isEmpty { Divider() }
+            Button("Choose from Applications…", action: chooseApp)
+        }
+        .fixedSize()
+    }
+
+    private func refreshRunningApps() {
+        let me = Bundle.main.bundleIdentifier
+        runningApps = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil && $0.bundleIdentifier != me }
+            .sorted { ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending }
+    }
+
+    private func addRule(bundleID: String, name: String) {
+        guard !rules.wrappedValue.contains(where: { $0.bundleID == bundleID }) else { return }
+        rules.wrappedValue.append(AppRule(bundleID: bundleID, name: name))
+    }
+
+    private func chooseApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        guard panel.runModal() == .OK, let url = panel.url,
+              let id = Bundle(url: url)?.bundleIdentifier else { return }
+        let name = FileManager.default.displayName(atPath: url.path)
+        addRule(bundleID: id, name: name.hasSuffix(".app") ? String(name.dropLast(4)) : name)
+    }
+
+}
+
+/// アプリごとのルール 1 件。「既定」を選んだ項目は上の設定に従う
+private struct AppRuleRow: View {
+    @Binding var rule: AppRule
+    let base: OutputConfig
+    let onRecordingChange: (Bool) -> Void
+    let onRemove: () -> Void
+    @State private var keyProblem: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(nsImage: AppIcon.image(for: rule.bundleID, size: 20))
+                Text(rule.name)
+                Text(rule.bundleID).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                Spacer()
+                Button(action: onRemove) {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("Remove Rule")
+            }
+            Picker("Transcribed Text", selection: $rule.output) {
+                Text("Default (\(base.output.label))").tag(OutputMethod?.none)
+                Divider()
+                ForEach(OutputMethod.allCases) { Text($0.label).tag(Optional($0)) }
+            }
+            if (rule.output ?? base.output) != .clipboard {
+                Picker("Paste with", selection: $rule.keystroke) {
+                    Text("Default (\(base.keystroke.label))").tag(PasteKeystroke?.none)
+                    Divider()
+                    ForEach(PasteKeystroke.allCases) { Text($0.label).tag(Optional($0)) }
+                }
+                if rule.keystroke == .custom {
+                    LabeledContent("Key to send") {
+                        ShortcutRecorderView(
+                            shortcut: rule.customKey,
+                            defaultShortcut: nil,
+                            onChange: { key in
+                                keyProblem = key.sendProblem
+                                if keyProblem == nil { rule.customKey = key }
+                            },
+                            onRecordingChange: { recording in
+                                if recording { keyProblem = nil }
+                                onRecordingChange(recording)
+                            }
+                        )
+                    }
+                    if let keyProblem {
+                        Text(keyProblem).font(.caption).foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    } else if rule.customKey == nil {
+                        Text("Until you record a key, the default paste method is used.")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// アプリのアイコン。見つからなければ一般的なアプリのアイコン
+private enum AppIcon {
+    static func image(for bundleID: String, size: CGFloat) -> NSImage {
+        let image: NSImage
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            image = NSWorkspace.shared.icon(forFile: url.path)
+        } else {
+            image = NSWorkspace.shared.icon(for: .application)
+        }
+        let copy = image.copy() as! NSImage // 共有の画像を変えないよう写してから大きさを変える
+        copy.size = NSSize(width: size, height: size)
+        return copy
     }
 }
 

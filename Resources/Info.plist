@@ -29,5 +29,7 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Koe uses the microphone to transcribe what you say.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Koe asks System Events to press ⌘V when a paste method uses AppleScript.</string>
 </dict>
 </plist>

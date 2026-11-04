@@ -95,3 +95,25 @@
 "Koe cannot record." = "録音できません。";
 "Koe cannot type at the cursor, and a modifier key alone cannot be the hotkey." = "カーソル位置に入力できず、修飾キー単独のホットキーも使えません。";
 "Not allowed. %@" = "許可されていません。%@";
+
+/* ペーストの送り方、アプリごとのルール */
+"⌘V with right ⌘" = "右 ⌘ で ⌘V";
+"⌘V with left ⌘" = "左 ⌘ で ⌘V";
+"⌘V via AppleScript (System Events)" = "AppleScript (System Events) で ⌘V";
+"Paste with" = "ペーストの送り方";
+"AppleScript works regardless of the keyboard layout. macOS asks for permission to control System Events the first time." = "AppleScript はキー配列に関係なく使えます。初回は macOS が System Events を制御する許可を求めます。";
+"No rules" = "ルールはありません";
+"When the app in front has a rule, the rule overrides the settings in the Output tab. Items set to Default follow the Output tab." = "入力先のアプリにルールがあれば、「出力」タブの設定よりルールを優先します。「既定」の項目は「出力」タブの設定に従います。";
+"Apps" = "アプリ";
+"Add App" = "アプリを追加";
+"Choose from Applications…" = "アプリケーションから選ぶ…";
+"Remove Rule" = "ルールを削除";
+"Default (%@)" = "既定 (%@)";
+"Custom key" = "キーを指定";
+"Key to send" = "送るキー";
+"Not set" = "未設定";
+"Until you record a key, the default paste method is used." = "キーを記録するまでは、既定の送り方を使います。";
+"A custom key is sent instead of ⌘V each time you dictate, so choose the key that pastes in that app. It must include ⌃, ⌥, ⇧ or ⌘ (or be an F key). Return, Tab, Esc, Delete, ⌘Q, ⌘W, ⌘H and ⌘M cannot be used." = "指定したキーは、書き起こすたびに ⌘V の代わりに送ります。そのアプリでペーストになるキーを選んでください。⌃ ⌥ ⇧ ⌘ のいずれかを含むキー (F キーは単独でも可) に限り、Return、Tab、Esc、Delete、⌘Q、⌘W、⌘H、⌘M は使えません。";
+"A modifier key alone cannot be sent." = "修飾キー単独は送れません。";
+"Return, Tab, Esc and Delete cannot be sent." = "Return、Tab、Esc、Delete は送れません。";
+"⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent." = "⌘Q、⌘W、⌘H、⌘M はアプリを閉じたり隠したりするので送れません。";

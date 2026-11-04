@@ -4,25 +4,32 @@ import ApplicationServices
 /// 書き起こした文字列をクリップボード経由でカーソル位置にペーストする。
 @MainActor
 enum TextInserter {
-    static func insert(_ text: String, method: OutputMethod) async {
+    /// 入力先 (最前面のアプリ) のルールを当てて入力する
+    static func insert(_ text: String) async {
+        let target = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let config = Defaults.outputConfig(for: target)
+        Log.info("insert into \(target ?? "?"): output=\(config.output.rawValue) keystroke=\(config.keystroke.rawValue)\(config.customKey.map { " " + $0.displayName } ?? "")")
+        await insert(text, config: config)
+    }
+
+    static func insert(_ text: String, config: OutputConfig) async {
         let pb = NSPasteboard.general
 
-        guard method != .clipboard else {
+        guard config.output != .clipboard else {
             put(text, on: pb, transient: false)
             return
         }
 
-        let saved = method == .paste ? snapshot(pb) : nil
+        let saved = config.output == .paste ? snapshot(pb) : nil
         // 元に戻すなら一時的な中身なので、履歴を取るアプリに残さないよう伝える
         put(text, on: pb, transient: saved != nil)
         let changeCount = pb.changeCount
 
         try? await Task.sleep(for: .milliseconds(50))
-        guard await postCommandV(interval: Defaults.pasteKeyIntervalMs) else { // 権限がなければクリップボードに残すだけ
-            Log.info("paste skipped: accessibility not granted (text left in clipboard)")
+        guard await sendPaste(config) else { // 送れなければクリップボードに残すだけ
+            Log.info("paste skipped (text left in clipboard)")
             return
         }
-        Log.info("posted cmd+V to \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?")")
 
         guard let saved else { return }
         // ペースト先が読み終えるまで待ってから戻す
@@ -65,22 +72,88 @@ enum TextInserter {
         }
     }
 
-    /// ⌘V を送る。右 ⌘ (0x36) を使い、物理的に押されている左 ⌘ と干渉しないようにする (VoiceInk と同じ)。
+    private static func sendPaste(_ config: OutputConfig) async -> Bool {
+        guard AXIsProcessTrusted() else {
+            Log.info("paste: accessibility not granted")
+            return false
+        }
+        let interval = Defaults.pasteKeyIntervalMs
+        switch config.keystroke {
+        case .rightCommand:
+            // 物理的に押されている左 ⌘ と干渉しない (VoiceInk と同じ)。左右のビットは付けない (以前からの送り方)
+            return await postKey(0x09, modifiers: [ModifierKey(code: 0x36, flags: .maskCommand)], interval: interval)
+        case .leftCommand:
+            return await postKey(0x09, modifiers: [.leftCommand], interval: interval)
+        case .appleScript:
+            return pasteWithAppleScript()
+        case .custom:
+            guard let key = config.customKey, key.sendProblem == nil else { return false }
+            return await postKey(key.keyCode, modifiers: ModifierKey.left(key.modifierFlags), interval: interval)
+        }
+    }
+
+    /// 送る修飾キー。flags にはデバイスごとの左右のビットも入れる (左右を区別するアプリはこれを見る)
+    private struct ModifierKey {
+        let code: CGKeyCode
+        let flags: CGEventFlags
+
+        static func left(_ code: CGKeyCode, _ mask: CGEventFlags, _ device: Int32) -> ModifierKey {
+            ModifierKey(code: code, flags: [mask, CGEventFlags(rawValue: UInt64(device))])
+        }
+        static let leftControl = left(0x3B, .maskControl, NX_DEVICELCTLKEYMASK)
+        static let leftOption = left(0x3A, .maskAlternate, NX_DEVICELALTKEYMASK)
+        static let leftShift = left(0x38, .maskShift, NX_DEVICELSHIFTKEYMASK)
+        static let leftCommand = left(0x37, .maskCommand, NX_DEVICELCMDKEYMASK)
+
+        /// ⌃⌥⇧⌘ を左側のキーとして押す
+        static func left(_ flags: NSEvent.ModifierFlags) -> [ModifierKey] {
+            [(NSEvent.ModifierFlags.control, leftControl), (.option, leftOption), (.shift, leftShift), (.command, leftCommand)]
+                .filter { flags.contains($0.0) }.map(\.1)
+        }
+    }
+
+    /// 修飾キーを順に押し、キーを押して離し、修飾キーを逆順に離す。
     /// 続けて送ると取りこぼすアプリがあるので、イベントの間を interval ms 空ける
-    private static func postCommandV(interval: Int) async -> Bool {
-        guard AXIsProcessTrusted() else { return false }
+    private static func postKey(_ key: CGKeyCode, modifiers: [ModifierKey], interval: Int) async -> Bool {
         let src = CGEventSource(stateID: .privateState)
-        let cmd: CGKeyCode = 0x36, v: CGKeyCode = 0x09
-        guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: cmd, keyDown: true),
-              let vDown = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: true),
-              let vUp = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: false),
-              let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: cmd, keyDown: false) else { return false }
-        cmdDown.flags = .maskCommand
-        vDown.flags = .maskCommand
-        vUp.flags = .maskCommand
-        for (i, e) in [cmdDown, vDown, vUp, cmdUp].enumerated() {
+        var events: [CGEvent] = []
+        var flags: CGEventFlags = []
+        for m in modifiers {
+            flags.formUnion(m.flags)
+            guard let e = CGEvent(keyboardEventSource: src, virtualKey: m.code, keyDown: true) else { return false }
+            e.flags = flags
+            events.append(e)
+        }
+        for down in [true, false] {
+            guard let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: down) else { return false }
+            e.flags = flags
+            events.append(e)
+        }
+        for m in modifiers.reversed() {
+            flags.subtract(m.flags)
+            guard let e = CGEvent(keyboardEventSource: src, virtualKey: m.code, keyDown: false) else { return false }
+            e.flags = flags
+            events.append(e)
+        }
+        for (i, e) in events.enumerated() {
             if i > 0, interval > 0 { try? await Task.sleep(for: .milliseconds(interval)) }
             e.post(tap: .cghidEventTap)
+        }
+        return true
+    }
+
+    /// System Events に ⌘V を打ってもらう。文字 "v" を指定するので、キー配列に左右されない。
+    /// 初回は macOS が「System Events の制御」の許可を求める
+    private static let pasteScript = NSAppleScript(source: #"tell application "System Events" to keystroke "v" using command down"#)
+
+    private static func pasteWithAppleScript() -> Bool {
+        guard let pasteScript else { return false }
+        var error: NSDictionary?
+        pasteScript.executeAndReturnError(&error)
+        if let error {
+            // -1743: オートメーションの許可がない
+            Log.info("AppleScript paste failed: \(error[NSAppleScript.errorNumber] ?? "?") \(error[NSAppleScript.errorMessage] ?? "")")
+            return false
         }
         return true
     }

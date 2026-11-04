@@ -257,7 +257,7 @@ final class AppState: ObservableObject {
                     history.insert(text, at: 0)
                     if history.count > 10 { history.removeLast() }
                     setPhase(.idle)
-                    await TextInserter.insert(text, method: Defaults.outputMethod)
+                    await TextInserter.insert(text)
                 } else {
                     setPhase(.idle)
                 }

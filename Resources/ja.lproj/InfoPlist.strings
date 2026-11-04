@@ -1,1 +1,2 @@
 "NSMicrophoneUsageDescription" = "話した内容を書き起こすためにマイクを使います。";
+"NSAppleEventsUsageDescription" = "AppleScript でペーストする設定のとき、System Events に ⌘V を押してもらいます。";

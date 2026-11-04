@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 
 /// 録音のホットキー。修飾キー単独 (左右を区別) か、修飾キーとキーの組み合わせ。
-struct Shortcut: Codable, Equatable {
+struct Shortcut: Codable, Hashable {
     enum Kind: String, Codable {
         case modifierOnly   // keyCode は修飾キーそのもの (右 ⌥ なら kVK_RightOption)
         case combo          // keyCode + modifiers を Carbon で登録する

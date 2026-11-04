@@ -24,7 +24,7 @@ struct RecognitionModel: Identifiable, Hashable {
 }
 
 /// 書き起こした文字列の渡し方
-enum OutputMethod: String, CaseIterable, Identifiable {
+enum OutputMethod: String, CaseIterable, Identifiable, Codable {
     case paste          // カーソル位置にペーストし、クリップボードを元に戻す
     case pasteAndKeep   // カーソル位置にペーストし、クリップボードにも残す
     case clipboard      // クリップボードにコピーするだけ
@@ -36,6 +36,91 @@ enum OutputMethod: String, CaseIterable, Identifiable {
         case .pasteAndKeep: String(localized: "Type at cursor and keep in clipboard")
         case .clipboard: String(localized: "Copy to clipboard only")
         }
+    }
+}
+
+/// ペーストの ⌘V の送り方。キーバインドを変えているアプリでは、効く送り方が違う
+enum PasteKeystroke: String, CaseIterable, Identifiable, Codable {
+    case rightCommand   // CGEvent で 右 ⌘ + V
+    case leftCommand    // CGEvent で 左 ⌘ + V
+    case appleScript    // System Events に keystroke "v" using command down を頼む
+    case custom         // ルールで決めたキー (例: ⌃Y)。アプリごとのルールでだけ選べる
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .rightCommand: String(localized: "⌘V with right ⌘")
+        case .leftCommand: String(localized: "⌘V with left ⌘")
+        case .appleScript: String(localized: "⌘V via AppleScript (System Events)")
+        case .custom: String(localized: "Custom key")
+        }
+    }
+
+    /// 「出力」タブの既定に選べる送り方
+    static let defaultChoices: [PasteKeystroke] = [.rightCommand, .leftCommand, .appleScript]
+}
+
+extension Shortcut {
+    /// ペーストの代わりに送るキーとして使えない理由。使えるなら nil。
+    /// 書き起こすたびに送るので、実行や終了につながるキーは送らない
+    var sendProblem: String? {
+        guard kind == .combo else { return String(localized: "A modifier key alone cannot be sent.") }
+        let runsOrCloses: Set<Int> = [kVK_Return, kVK_ANSI_KeypadEnter, kVK_Tab, kVK_Escape, kVK_Delete, kVK_ForwardDelete]
+        if runsOrCloses.contains(Int(keyCode)) {
+            return String(localized: "Return, Tab, Esc and Delete cannot be sent.")
+        }
+        let quitsOrHides: Set<Int> = [kVK_ANSI_Q, kVK_ANSI_W, kVK_ANSI_H, kVK_ANSI_M]
+        if modifierFlags.contains(.command),
+           quitsOrHides.contains(Int(keyCode)) || ["Q", "W", "H", "M"].contains(keyLabel.uppercased()) {
+            return String(localized: "⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent.")
+        }
+        if modifierFlags.isEmpty, Shortcut.functionKeyNumber(keyCode) == nil {
+            return String(localized: "Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own).")
+        }
+        return nil
+    }
+}
+
+/// 入力先のアプリごとに、既定の出力の設定を上書きする。nil の項目は既定に従う
+struct AppRule: Codable, Hashable, Identifiable {
+    var bundleID: String
+    var name: String
+    var output: OutputMethod?
+    var keystroke: PasteKeystroke?
+    /// keystroke が custom のときに送るキー
+    var customKey: Shortcut?
+
+    var id: String { bundleID }
+
+    static func decode(_ json: String) -> [AppRule] {
+        (try? JSONDecoder().decode([AppRule].self, from: Data(json.utf8))) ?? []
+    }
+
+    static func encode(_ rules: [AppRule]) -> String {
+        (try? JSONEncoder().encode(rules)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    }
+}
+
+/// 入力先のアプリに使う出力の設定
+struct OutputConfig: Equatable {
+    var output: OutputMethod
+    var keystroke: PasteKeystroke
+    /// keystroke が custom のときに送るキー。送ってよいキーに限る
+    var customKey: Shortcut? = nil
+
+    /// bundleID のルールがあれば、その項目で既定を上書きする。
+    /// custom なのにキーがない (まだ記録していない) か送れないキーなら、既定の送り方にする
+    static func resolve(bundleID: String?, rules: [AppRule], default base: OutputConfig) -> OutputConfig {
+        guard let bundleID, let rule = rules.first(where: { $0.bundleID == bundleID }) else { return base }
+        var config = OutputConfig(output: rule.output ?? base.output, keystroke: rule.keystroke ?? base.keystroke)
+        if config.keystroke == .custom {
+            if let key = rule.customKey, key.sendProblem == nil {
+                config.customKey = key
+            } else {
+                config.keystroke = base.keystroke
+            }
+        }
+        return config
     }
 }
 
@@ -53,6 +138,8 @@ enum SettingsKey {
     static let speechPath = "speechPath"
     static let pasteKeyIntervalMs = "pasteKeyIntervalMs"
     static let clipboardRestoreDelayMs = "clipboardRestoreDelayMs"
+    static let pasteKeystroke = "pasteKeystroke"
+    static let appRules = "appRules"
 }
 
 enum Defaults {
@@ -70,6 +157,8 @@ enum Defaults {
             SettingsKey.speechPath: "",
             SettingsKey.pasteKeyIntervalMs: 10,
             SettingsKey.clipboardRestoreDelayMs: 300,
+            SettingsKey.pasteKeystroke: PasteKeystroke.rightCommand.rawValue,
+            SettingsKey.appRules: "[]",
         ])
     }
 
@@ -102,6 +191,15 @@ enum Defaults {
     static var stopSound: String { UserDefaults.standard.string(forKey: SettingsKey.stopSound)! }
     static var outputMethod: OutputMethod {
         OutputMethod(rawValue: UserDefaults.standard.string(forKey: SettingsKey.outputMethod)!) ?? .paste
+    }
+    static var pasteKeystroke: PasteKeystroke {
+        let k = PasteKeystroke(rawValue: UserDefaults.standard.string(forKey: SettingsKey.pasteKeystroke)!) ?? .rightCommand
+        return PasteKeystroke.defaultChoices.contains(k) ? k : .rightCommand
+    }
+    static var appRules: [AppRule] { AppRule.decode(UserDefaults.standard.string(forKey: SettingsKey.appRules)!) }
+    /// 入力先のアプリ (bundleID) に使う出力の設定
+    static func outputConfig(for bundleID: String?) -> OutputConfig {
+        .resolve(bundleID: bundleID, rules: appRules, default: OutputConfig(output: outputMethod, keystroke: pasteKeystroke))
     }
     static var speechPath: String { UserDefaults.standard.string(forKey: SettingsKey.speechPath)! }
 

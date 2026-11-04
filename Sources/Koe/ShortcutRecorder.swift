@@ -115,7 +115,10 @@ final class ShortcutRecorderModel: ObservableObject {
 }
 
 struct ShortcutRecorderView: View {
-    let shortcut: Shortcut
+    /// nil なら「未設定」と出す
+    let shortcut: Shortcut?
+    /// 「既定に戻す」で戻す値。nil ならボタンを出さない
+    var defaultShortcut: Shortcut? = .default
     let onChange: (Shortcut) -> Void
     /// 記録を始める・終える。記録中は今のホットキーを止める
     let onRecordingChange: (Bool) -> Void
@@ -148,8 +151,8 @@ struct ShortcutRecorderView: View {
                         onRecordingChange(true)
                         model.start()
                     }
-                    if shortcut != .default {
-                        Button("Reset to Default") { onChange(.default) }
+                    if let defaultShortcut, shortcut != defaultShortcut {
+                        Button("Reset to Default") { onChange(defaultShortcut) }
                     }
                 }
             }
@@ -169,7 +172,7 @@ struct ShortcutRecorderView: View {
     }
 
     private var label: String {
-        guard model.isRecording else { return shortcut.displayName }
+        guard model.isRecording else { return shortcut?.displayName ?? String(localized: "Not set") }
         return model.preview.isEmpty ? String(localized: "Press keys…") : model.preview
     }
 }
