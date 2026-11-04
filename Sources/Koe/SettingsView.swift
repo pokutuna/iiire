@@ -81,9 +81,14 @@ struct SettingsView: View {
                 }
             }
 
-            Section("speech コマンド") {
+            Section {
                 TextField("パス (空なら自動)", text: $speechPath, prompt: Text(SpeechWorker.resolveExecutable() ?? "見つかりません"))
                 Button("worker を再起動") { state.restartWorker() }
+            } header: {
+                Text("speech コマンド")
+            } footer: {
+                Text("設定は変更するとすぐに保存され、次の録音から使われます。speech コマンドのパスだけは「worker を再起動」で反映されます。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
