@@ -118,7 +118,11 @@ private struct GeneralSettings: View {
                     openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
                 }
             } header: {
-                Text("Permissions")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Permissions")
+                    Text("Koe needs these permissions to record from the microphone and type at the cursor.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             } footer: {
                 Text("Settings are saved as soon as you change them and apply from the next recording.")
                     .font(.caption).foregroundStyle(.secondary)

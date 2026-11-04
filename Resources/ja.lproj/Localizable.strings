@@ -36,6 +36,7 @@
 "Parakeet TDT-CTC ja (ja, short utterances, 0.66 GB)" = "Parakeet TDT-CTC ja (ja, 短い発話, 0.66 GB)";
 "Path (automatic if empty)" = "パス (空なら自動)";
 "Permissions" = "権限";
+"Koe needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
 "Play sounds when recording starts and stops" = "録音の開始・終了で音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
 "Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。";

@@ -198,7 +198,7 @@ enum Defaults {
     static var shortcut: Shortcut {
         let d = UserDefaults.standard
         if let s = Shortcut.decode(d.string(forKey: SettingsKey.shortcut) ?? "") { return s }
-        // 以前のプリセット名で保存された設定
+        // 以前の版はホットキーをプリセット名 (rightOption など) で保存していた。その設定を引き継ぐ
         if let legacy = d.string(forKey: SettingsKey.legacyHotkey), let s = legacyShortcut(legacy) { return s }
         return .default
     }

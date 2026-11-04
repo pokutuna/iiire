@@ -212,7 +212,6 @@ final class SpeechWorker {
     }
 
     private func receiveStdout(_ data: Data) {
-        guard !data.isEmpty else { return }
         stdoutBuffer.append(data)
         while let nl = stdoutBuffer.firstIndex(of: 0x0A) {
             let line = stdoutBuffer[stdoutBuffer.startIndex..<nl]
@@ -267,7 +266,6 @@ final class SpeechWorker {
     }
 
     private func receiveStderr(_ data: Data) {
-        guard !data.isEmpty else { return }
         stderrBuffer.append(data)
         if stderrBuffer.count > 8192 { stderrBuffer = stderrBuffer.suffix(4096) }
         // 進捗表示のため、ロード中は stderr の最終行を状態に出す

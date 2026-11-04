@@ -330,7 +330,7 @@ final class AppState: ObservableObject {
     }
 
     private func fail(_ message: String) {
-        Log.info("\(message)")
+        Log.info(message)
         lastError = message
         setPhase(.idle)
         hud.flash(message)
