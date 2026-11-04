@@ -47,6 +47,9 @@ enum SettingsKey {
     static let legacyHotkey = "hotkey"
     static let inputDeviceUID = "inputDeviceUID"
     static let outputMethod = "outputMethod"
+    static let soundCue = "soundCue"
+    static let startSound = "startSound"
+    static let stopSound = "stopSound"
     static let speechPath = "speechPath"
 }
 
@@ -59,6 +62,9 @@ enum Defaults {
             SettingsKey.shortcut: "",
             SettingsKey.inputDeviceUID: "",
             SettingsKey.outputMethod: OutputMethod.paste.rawValue,
+            SettingsKey.soundCue: true,
+            SettingsKey.startSound: "Tink",
+            SettingsKey.stopSound: "Pop",
             SettingsKey.speechPath: "",
         ])
     }
@@ -87,6 +93,9 @@ enum Defaults {
         }
     }
     static var inputDeviceUID: String { UserDefaults.standard.string(forKey: SettingsKey.inputDeviceUID)! }
+    static var soundCue: Bool { UserDefaults.standard.bool(forKey: SettingsKey.soundCue) }
+    static var startSound: String { UserDefaults.standard.string(forKey: SettingsKey.startSound)! }
+    static var stopSound: String { UserDefaults.standard.string(forKey: SettingsKey.stopSound)! }
     static var outputMethod: OutputMethod {
         OutputMethod(rawValue: UserDefaults.standard.string(forKey: SettingsKey.outputMethod)!) ?? .paste
     }

@@ -25,6 +25,8 @@ final class AppState: ObservableObject {
     /// これより長く押していたら押している間だけ録音 (push-to-talk)、短ければトグル
     private let holdThreshold: TimeInterval = 0.4
     private var transcribeTask: Task<Void, Never>?
+    /// 録音の先頭で捨てる秒数 (開始音がマイクに入った分)
+    private var leadingTrim: TimeInterval = 0
 
     init() {
         worker.onStateChange = { [weak self] s in
@@ -162,12 +164,16 @@ final class AppState: ObservableObject {
         default: break
         }
 
+        let cueAt = Date()
+        SoundCue.playStart()
         do {
             try recorder.start(deviceUID: Defaults.inputDeviceUID)
         } catch {
             fail("録音を開始できません: \(error.localizedDescription)")
             return
         }
+        // マイクが開くまでに開始音が鳴り終わっていなければ、その分を後で捨てる
+        leadingTrim = Defaults.soundCue ? max(0, SoundCue.startAudible - Date().timeIntervalSince(cueAt)) : 0
         Log.info("recording started: device=\(Defaults.inputDeviceUID.isEmpty ? "default" : Defaults.inputDeviceUID) rate=\(recorder.sampleRate)")
         setPhase(.recording)
     }
@@ -175,7 +181,9 @@ final class AppState: ObservableObject {
     private func stopAndTranscribe() {
         guard phase == .recording else { return }
         var samples = recorder.stop()
+        SoundCue.playStop()
         let rate = recorder.sampleRate
+        samples.removeFirst(min(samples.count, Int(leadingTrim * Double(rate))))
         let peak = samples.reduce(Float(0)) { max($0, abs($1)) }
         Log.info("recording stopped: \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / Double(rate)))s) peak=\(peak)")
         // 0.3 秒未満は誤操作とみなす

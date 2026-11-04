@@ -11,6 +11,10 @@ struct SettingsView: View {
     @State private var shortcutError: String?
     @AppStorage(SettingsKey.inputDeviceUID) private var inputDeviceUID = ""
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
+    @AppStorage(SettingsKey.soundCue) private var soundCue = true
+    @AppStorage(SettingsKey.startSound) private var startSound = "Tink"
+    @AppStorage(SettingsKey.stopSound) private var stopSound = "Pop"
+    @State private var soundNames: [String] = []
     @AppStorage(SettingsKey.speechPath) private var speechPath = ""
 
     @State private var devices: [AudioInputDevice] = []
@@ -68,6 +72,11 @@ struct SettingsView: View {
                 }
                 Text("短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。")
                     .font(.caption).foregroundStyle(.secondary)
+                Toggle("録音の開始・終了で音を鳴らす", isOn: $soundCue)
+                if soundCue {
+                    soundPicker("開始音", selection: $startSound)
+                    soundPicker("終了音", selection: $stopSound)
+                }
             }
 
             Section("出力") {
@@ -121,6 +130,26 @@ struct SettingsView: View {
         }
     }
 
+    /// 選ぶと鳴らす。▶ でもう一度鳴らせる
+    private func soundPicker(_ title: String, selection: Binding<String>) -> some View {
+        HStack {
+            Picker(title, selection: selection) {
+                // 保存した音が見つからなくなっても選択肢から消さない
+                ForEach(soundNames.contains(selection.wrappedValue) ? soundNames : [selection.wrappedValue] + soundNames, id: \.self) {
+                    Text($0).tag($0)
+                }
+            }
+            .onChange(of: selection.wrappedValue) { _, name in SoundCue.preview(name) }
+            Button {
+                SoundCue.preview(selection.wrappedValue)
+            } label: {
+                Image(systemName: "play.fill")
+            }
+            .buttonStyle(.borderless)
+            .help("試聴")
+        }
+    }
+
     private var workerStatus: String {
         switch state.workerState {
         case .stopped: "停止中"
@@ -132,6 +161,7 @@ struct SettingsView: View {
 
     private func refresh() {
         devices = AudioDevices.inputs()
+        soundNames = SoundCue.availableNames()
         axTrusted = TextInserter.isTrusted
         micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     }
