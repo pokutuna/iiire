@@ -47,7 +47,11 @@ git add vendor/speech.cpp
 
 ## 設定
 
+設定画面は「一般」「認識」「出力」「詳細」のタブに分かれている。
+
+
 - **モデル**: Haas ja (既定) / ReazonSpeech v2 / Parakeet ja / Qwen3-ASR 0.6B・1.7B。切り替えると worker を起動し直す
+  - ダウンロード済みのモデルには ✓ が付く。ダウンロード中は、設定画面、メニュー、HUD に進み具合を出す (`speech models --json` を 1 秒ごとに調べる)
 - **語彙・ヒント**: Haas では `表記=読み` を 1 行に 1 つ (例: `Claude=クロード`)。Qwen3-ASR では固有名詞や用語を並べたプロンプト
 - **マイク**: システムの既定、または入力デバイスを指定
 - **ホットキー**: 「変更…」を押してから、登録したいキーを実際に押す。押している間はその場で表示される
@@ -83,3 +87,10 @@ build/Koe.app/Contents/MacOS/Koe --transcribe /tmp/t.wav [MODEL]
 ```
 
 ショートカットの記録の判定は `swift test` で確かめる。
+
+設定画面は、起動時に開いたり、各タブを PNG に書き出したりできる。書き出しはアプリが自分のウィンドウを描くので、画面収録の許可は要らない。
+
+```sh
+build/Koe.app/Contents/MacOS/Koe --open-settings
+build/Koe.app/Contents/MacOS/Koe --snapshot-settings /tmp/shots -AppleLanguages '(en)'   # settings-<tab>.png を書き出して終了する
+```

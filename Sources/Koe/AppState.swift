@@ -13,6 +13,9 @@ final class AppState: ObservableObject {
     @Published private(set) var level: Float = 0
     @Published private(set) var history: [String] = []
     @Published private(set) var lastError: String?
+    /// モデル名 → ファイルを取得済みか、どこまで取得したか
+    @Published private(set) var modelFiles: [String: ModelFile] = [:]
+    private var watchingDownload = false
 
     private let worker = SpeechWorker()
     private let recorder = AudioRecorder()
@@ -33,6 +36,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             workerState = s
             if phase == .transcribing { hud.update() }
+            if case .loading = s { watchModelDownload() } else { refreshModels() }
         }
         recorder.onLevel = { [weak self] l in
             Task { @MainActor in self?.level = l }
@@ -87,6 +91,36 @@ final class AppState: ObservableObject {
 
     func restartWorker() {
         worker.start(model: Defaults.model.id)
+    }
+
+    // MARK: - モデルの取得
+
+    func refreshModels() {
+        Task { modelFiles = await ModelCatalog.load() }
+    }
+
+    /// worker が準備中の間は、取得の進み具合を出すため 1 秒ごとに調べ直す
+    private func watchModelDownload() {
+        guard !watchingDownload else { return }
+        watchingDownload = true
+        Task {
+            defer { watchingDownload = false }
+            while case .loading = workerState {
+                modelFiles = await ModelCatalog.load()
+                if phase == .transcribing { hud.update() }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            modelFiles = await ModelCatalog.load()
+        }
+    }
+
+    /// 今のモデルを取得している最中なら、その進み具合の表示
+    var downloadText: String? {
+        guard case .loading = workerState else { return nil }
+        let id = Defaults.model.id
+        guard let f = modelFiles[id], !f.fetched else { return nil }
+        let percent = f.fraction.formatted(.percent.precision(.fractionLength(0)))
+        return String(localized: "Downloading \(id): \(percent) (\(ModelFile.gigabytes(f.partial)) / \(ModelFile.gigabytes(f.size)))")
     }
 
     // MARK: - 操作

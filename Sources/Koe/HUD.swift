@@ -85,6 +85,7 @@ private struct HUDView: View {
     }
 
     private var transcribingLabel: String {
+        if let d = state.downloadText { return d }
         if case .loading(let s) = state.workerState { return s }
         return String(localized: "Transcribing…")
     }
