@@ -9,6 +9,8 @@ final class ShortcutRecorderModel: ObservableObject {
     /// 記録中に押されているキーの表示
     @Published private(set) var preview = ""
     @Published var message: String?
+    /// ⇧ だけを修飾キーにした組み合わせを受け付けるか (送るキーなら受け付ける。ホットキーなら大文字の入力を奪うので受け付けない)
+    var allowsShiftOnly = false
 
     /// 記録が終わったとき (確定でも取り消しでも) に呼ぶ。確定なら値が入る
     var onFinish: ((Shortcut?) -> Void)?
@@ -102,7 +104,7 @@ final class ShortcutRecorderModel: ObservableObject {
             return
         }
         // ⇧ だけでは大文字の入力を奪ってしまう
-        if mods == .shift, Shortcut.functionKeyNumber(e.keyCode) == nil {
+        if !allowsShiftOnly, mods == .shift, Shortcut.functionKeyNumber(e.keyCode) == nil {
             message = String(localized: "⇧ alone takes over typing. Add ⌃, ⌥ or ⌘.")
             return
         }
@@ -130,6 +132,7 @@ struct ShortcutRecorderView: View {
     let shortcut: Shortcut?
     /// 「既定に戻す」で戻す値。nil ならボタンを出さない
     var defaultShortcut: Shortcut? = .default
+    var allowsShiftOnly = false
     let onChange: (Shortcut) -> Void
     /// 記録を始める・終える。記録中は今のホットキーを止める
     let onRecordingChange: (Bool) -> Void
@@ -164,8 +167,10 @@ struct ShortcutRecorderView: View {
                             if let s { onChange(s) }
                             onRecordingChange(false)
                         }
-                        onRecordingChange(true)
+                        model.allowsShiftOnly = allowsShiftOnly
+                        // 先に始める。他の行の記録を終わらせ、その終わりの通知 (ホットキーを戻す) を先に済ませる
                         model.start()
+                        onRecordingChange(true)
                     }
                     if let defaultShortcut, shortcut != defaultShortcut {
                         Button("Reset to Default") { onChange(defaultShortcut) }

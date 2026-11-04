@@ -488,6 +488,7 @@ private struct AppRuleRow: View {
                         ShortcutRecorderView(
                             shortcut: rule.customKey,
                             defaultShortcut: nil,
+                            allowsShiftOnly: true,
                             onChange: { key in
                                 keyProblem = key.sendProblem
                                 if keyProblem == nil { rule.customKey = key }

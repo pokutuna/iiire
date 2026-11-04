@@ -291,6 +291,12 @@ final class AppState: ObservableObject {
             do {
                 let raw = try await worker.transcribe(samples: samples, sampleRate: rate, options: options)
                 guard id == transcribeID else { return }
+                // Esc の後に結果が届いたら入力しない (取り消しより先に書き起こしが終わっていた)
+                guard !cancelRequested else {
+                    Log.info("transcription finished after cancel; result dropped")
+                    setPhase(.idle)
+                    return
+                }
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 Log.info("transcribed: \(text.debugDescription)")
                 if !text.isEmpty {

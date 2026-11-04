@@ -40,9 +40,13 @@ enum TextInserter {
         put(text, on: pb, transient: saved != nil)
         let changeCount = pb.changeCount
         if let saved { pendingRestore = (saved, changeCount) }
+        let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         try? await Task.sleep(for: .milliseconds(50))
-        guard await sendPaste(config) else {
+        // 待つ間に誰かがコピーしたか、最前面のアプリが変わったら送らない (別の中身や別のアプリにキーを送らない)
+        let unchanged = pb.changeCount == changeCount
+            && NSWorkspace.shared.frontmostApplication?.processIdentifier == target
+        guard unchanged, await sendPaste(config) else {
             // 送れなければクリップボードに残す。戻さないので、履歴にも残してよいものとして置き直す
             Log.info("paste skipped (text left in clipboard)")
             if pb.changeCount == changeCount {

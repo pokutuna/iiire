@@ -74,8 +74,8 @@ enum AudioDevices {
 /// 録音のたびに AVAudioEngine を作り直す (待機中にマイクを掴まないため)。
 final class AudioRecorder {
     private var engine: AVAudioEngine?
-    private let lock = NSLock()
-    private var samples: [Float] = []
+    /// 今の録音の溜め先。録音ごとに作り直すので、止めた後に古い tap から届いた音は次の録音に混ざらない
+    private var session: Session?
     private(set) var sampleRate: Int = 48000
     /// 録音に使っているデバイスの名前
     private(set) var deviceName: String?
@@ -97,14 +97,35 @@ final class AudioRecorder {
         }
     }
 
+    /// 1 回の録音のサンプル。閉じた後は受け付けない
+    private final class Session: @unchecked Sendable {
+        private let lock = NSLock()
+        private var samples: [Float] = []
+        private var closed = false
+
+        func append(_ mono: [Float]) -> Bool {
+            lock.withLock {
+                guard !closed else { return false }
+                samples.append(contentsOf: mono)
+                return true
+            }
+        }
+
+        func close() -> [Float] {
+            lock.withLock {
+                closed = true
+                defer { samples = [] }
+                return samples
+            }
+        }
+    }
+
     /// 別スレッドでの開く処理の結果。時限を過ぎてから開けたら、そのスレッドが自分で閉じる
     private final class StartAttempt: @unchecked Sendable {
         let lock = NSLock()
         var finished = false
         var abandoned = false
-        var engine: AVAudioEngine?
-        var sampleRate = 0
-        var deviceName: String?
+        var opened: (engine: AVAudioEngine, sampleRate: Int, deviceName: String?)?
         var error: Error?
     }
 
@@ -118,46 +139,47 @@ final class AudioRecorder {
             stuckAttempt = nil
         }
 
+        let session = Session()
         let attempt = StartAttempt()
         let done = DispatchSemaphore(value: 0)
-        // あきらめた後に開けた分は、閉じるまでに届いても溜めない
-        let tap: (AVAudioPCMBuffer) -> Void = { [weak self] buffer in
-            guard !attempt.lock.withLock({ attempt.abandoned }) else { return }
-            self?.append(buffer)
-        }
+        let tap: (AVAudioPCMBuffer) -> Void = { [weak self] buffer in self?.append(buffer, to: session) }
         Thread.detachNewThread {
             let result = Result { try Self.openEngine(deviceUID: deviceUID, tap: tap) }
-            attempt.lock.withLock {
+            let abandoned = attempt.lock.withLock {
                 attempt.finished = true
                 switch result {
-                case .success(let opened):
-                    if attempt.abandoned {
-                        Log.info("microphone opened after the timeout; closing it")
-                        opened.engine.inputNode.removeTap(onBus: 0)
-                        opened.engine.stop()
-                    } else {
-                        (attempt.engine, attempt.sampleRate, attempt.deviceName) = opened
-                    }
-                case .failure(let error):
-                    attempt.error = error
+                case .success(let opened): attempt.opened = opened
+                case .failure(let error): attempt.error = error
                 }
+                return attempt.abandoned
             }
             done.signal()
+            // あきらめた後に開けたら閉じる。CoreAudio の呼び出しはロックの外で行う (詰まっても次の録音を止めない)
+            if abandoned, case .success(let opened) = result {
+                Log.info("microphone opened after the timeout; closing it")
+                _ = session.close()
+                opened.engine.inputNode.removeTap(onBus: 0)
+                opened.engine.stop()
+            }
         }
 
         let inTime = done.wait(timeout: .now() + Self.startTimeout) == .success
-        try attempt.lock.withLock {
+        let opened = try attempt.lock.withLock {
             if !inTime, !attempt.finished {
                 attempt.abandoned = true
-                stuckAttempt = attempt
-                Log.info("microphone did not open within \(Self.startTimeout)s")
-                throw TimeoutError()
+                return nil as (engine: AVAudioEngine, sampleRate: Int, deviceName: String?)?
             }
             if let error = attempt.error { throw error }
-            engine = attempt.engine
-            sampleRate = attempt.sampleRate
-            deviceName = attempt.deviceName
+            return attempt.opened
         }
+        guard let opened else {
+            stuckAttempt = attempt
+            _ = session.close()
+            Log.info("microphone did not open within \(Self.startTimeout)s")
+            throw TimeoutError()
+        }
+        (engine, sampleRate, deviceName) = opened
+        self.session = session
         // 録音中にデバイスが変わると、エンジンが止まって音が届かなくなることがある
         configObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { _ in
@@ -200,6 +222,8 @@ final class AudioRecorder {
     func stop() -> [Float] {
         if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
         configObserver = nil
+        let samples = session?.close() ?? []
+        session = nil
         if let engine {
             self.engine = nil
             let done = DispatchSemaphore(value: 0)
@@ -212,14 +236,10 @@ final class AudioRecorder {
                 Log.info("microphone did not stop within \(Self.stopTimeout)s")
             }
         }
-        return lock.withLock {
-            let s = samples
-            samples = []
-            return s
-        }
+        return samples
     }
 
-    private func append(_ buffer: AVAudioPCMBuffer) {
+    private func append(_ buffer: AVAudioPCMBuffer, to session: Session) {
         guard let data = buffer.floatChannelData else { return }
         let n = Int(buffer.frameLength)
         let channels = Int(buffer.format.channelCount)
@@ -235,7 +255,7 @@ final class AudioRecorder {
         var sum: Float = 0
         for x in mono { sum += x * x }
         let rms = sqrt(sum / Float(max(n, 1)))
-        lock.withLock { samples.append(contentsOf: mono) }
+        guard session.append(mono) else { return }
         // 人の声の RMS はおおよそ 0.01-0.2 なので対数で 0...1 に寄せる
         let level = max(0, min(1, (20 * log10(max(rms, 1e-5)) + 50) / 40))
         onLevel?(level)
