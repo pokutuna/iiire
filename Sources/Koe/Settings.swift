@@ -44,7 +44,7 @@ enum PasteKeystroke: String, CaseIterable, Identifiable, Codable {
     case rightCommand   // CGEvent で 右 ⌘ + V
     case leftCommand    // CGEvent で 左 ⌘ + V
     case appleScript    // System Events に keystroke "v" using command down を頼む
-    case custom         // ルールで決めたキー (例: ⌃Y)。アプリごとのルールでだけ選べる
+    case custom         // 記録したキー (例: ⌃Y、キー配列で ⌘V が別の位置なら ⌘ とそのキー)
 
     var id: String { rawValue }
     var label: String {
@@ -55,9 +55,6 @@ enum PasteKeystroke: String, CaseIterable, Identifiable, Codable {
         case .custom: String(localized: "Custom key")
         }
     }
-
-    /// 「出力」タブの既定に選べる送り方
-    static let defaultChoices: [PasteKeystroke] = [.rightCommand, .leftCommand, .appleScript]
 }
 
 extension Shortcut {
@@ -69,9 +66,8 @@ extension Shortcut {
         if runsOrCloses.contains(Int(keyCode)) {
             return String(localized: "Return, Tab, Esc and Delete cannot be sent.")
         }
-        let quitsOrHides: Set<Int> = [kVK_ANSI_Q, kVK_ANSI_W, kVK_ANSI_H, kVK_ANSI_M]
-        if modifierFlags.contains(.command),
-           quitsOrHides.contains(Int(keyCode)) || ["Q", "W", "H", "M"].contains(keyLabel.uppercased()) {
+        // キー配列によって位置が違うので、記録したときの文字で見る
+        if modifierFlags.contains(.command), ["Q", "W", "H", "M"].contains(keyLabel.uppercased()) {
             return String(localized: "⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent.")
         }
         if lacksModifier {
@@ -108,26 +104,46 @@ struct OutputConfig: Equatable {
     /// keystroke が custom のときに送るキー。送ってよいキーに限る
     var customKey: Shortcut? = nil
 
-    /// 「出力」タブで保存した値から作る。アプリごとのルールでしか選べない送り方は既定に戻す
-    static func base(output: String, keystroke: String) -> OutputConfig {
-        let k = PasteKeystroke(rawValue: keystroke) ?? .rightCommand
-        return OutputConfig(output: OutputMethod(rawValue: output) ?? .paste,
-                            keystroke: PasteKeystroke.defaultChoices.contains(k) ? k : .rightCommand)
+    /// 「出力」タブで保存した値から作る。
+    /// custom なのにキーがない (まだ記録していない) か送れないキーなら、右 ⌘ で ⌘V を送る
+    static func base(output: String, keystroke: String, customKey: String) -> OutputConfig {
+        var config = OutputConfig(output: OutputMethod(rawValue: output) ?? .paste,
+                                  keystroke: PasteKeystroke(rawValue: keystroke) ?? .rightCommand)
+        if config.keystroke == .custom {
+            if let key = Shortcut.decode(customKey), key.sendProblem == nil {
+                config.customKey = key
+            } else {
+                config.keystroke = .rightCommand
+            }
+        }
+        return config
     }
 
     /// bundleID のルールがあれば、その項目で既定を上書きする。
     /// custom なのにキーがない (まだ記録していない) か送れないキーなら、既定の送り方にする
     static func resolve(bundleID: String?, rules: [AppRule], default base: OutputConfig) -> OutputConfig {
         guard let bundleID, let rule = rules.first(where: { $0.bundleID == bundleID }) else { return base }
-        var config = OutputConfig(output: rule.output ?? base.output, keystroke: rule.keystroke ?? base.keystroke)
-        if config.keystroke == .custom {
+        var config = base
+        config.output = rule.output ?? base.output
+        switch rule.keystroke {
+        case nil:
+            break
+        case .custom:
             if let key = rule.customKey, key.sendProblem == nil {
+                config.keystroke = .custom
                 config.customKey = key
-            } else {
-                config.keystroke = base.keystroke
             }
+        case let k?:
+            config.keystroke = k
+            config.customKey = nil
         }
         return config
+    }
+
+    /// 送り方の表示。記録したキーならそのキーも出す
+    var keystrokeLabel: String {
+        guard keystroke == .custom, let customKey else { return keystroke.label }
+        return "\(keystroke.label) \(customKey.displayName)"
     }
 }
 
@@ -146,6 +162,7 @@ enum SettingsKey {
     static let pasteKeyIntervalMs = "pasteKeyIntervalMs"
     static let clipboardRestoreDelayMs = "clipboardRestoreDelayMs"
     static let pasteKeystroke = "pasteKeystroke"
+    static let pasteCustomKey = "pasteCustomKey"
     static let appRules = "appRules"
 }
 
@@ -165,6 +182,7 @@ enum Defaults {
             SettingsKey.pasteKeyIntervalMs: 10,
             SettingsKey.clipboardRestoreDelayMs: 300,
             SettingsKey.pasteKeystroke: PasteKeystroke.rightCommand.rawValue,
+            SettingsKey.pasteCustomKey: "",
             SettingsKey.appRules: "[]",
         ])
     }
@@ -203,7 +221,8 @@ enum Defaults {
     static var stopSound: String { string(SettingsKey.stopSound) }
     /// 「出力」タブの設定
     static var baseOutputConfig: OutputConfig {
-        .base(output: string(SettingsKey.outputMethod), keystroke: string(SettingsKey.pasteKeystroke))
+        .base(output: string(SettingsKey.outputMethod), keystroke: string(SettingsKey.pasteKeystroke),
+              customKey: string(SettingsKey.pasteCustomKey))
     }
     static var outputMethod: OutputMethod { baseOutputConfig.output }
     static var appRules: [AppRule] { AppRule.decode(string(SettingsKey.appRules)) }

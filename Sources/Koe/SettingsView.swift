@@ -277,14 +277,16 @@ private struct RecognitionSettings: View {
 // MARK: - 出力: 入力のしかた、ペーストのタイミング
 
 private struct OutputSettings: View {
+    @EnvironmentObject var state: AppState
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
     @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+    @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
     @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = 10
     @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 300
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
 
     private var base: OutputConfig {
-        .base(output: outputMethod, keystroke: pasteKeystroke)
+        .base(output: outputMethod, keystroke: pasteKeystroke, customKey: pasteCustomKey)
     }
 
     /// 既定とルールで実際に使う設定。どの欄を出すかの判断に使う
@@ -303,20 +305,34 @@ private struct OutputSettings: View {
                 }
                 if base.output != .clipboard {
                     Picker("Paste with", selection: $pasteKeystroke) {
-                        ForEach(PasteKeystroke.defaultChoices) { Text($0.label).tag($0.rawValue) }
+                        ForEach(PasteKeystroke.allCases) { Text($0.label).tag($0.rawValue) }
+                    }
+                    if pasteKeystroke == PasteKeystroke.custom.rawValue {
+                        CustomKeyField(
+                            key: Binding(get: { Shortcut.decode(pasteCustomKey) }, set: { pasteCustomKey = $0?.encoded() ?? "" }),
+                            fallbackNote: "Until you record a key, ⌘V is sent with right ⌘.",
+                            onRecordingChange: { recording in
+                                if recording { state.suspendHotkey() } else { _ = state.applyHotkey() }
+                            }
+                        )
                     }
                 }
             } footer: {
-                if pasting.contains(where: { $0.keystroke == .appleScript }) {
-                    Text("AppleScript works regardless of the keyboard layout. macOS asks for permission to control System Events the first time.")
-                        .font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .trailing, spacing: 4) {
+                    if base.output != .clipboard, pasteKeystroke != PasteKeystroke.custom.rawValue {
+                        Text("If ⌘V is on a different key in your keyboard layout, choose Custom key and press the keys that paste.")
+                    }
+                    if pasting.contains(where: { $0.keystroke == .appleScript }) {
+                        Text("AppleScript types the character V, so it works with most keyboard layouts. macOS asks for permission to control System Events the first time.")
+                    }
                 }
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             if !pasting.isEmpty {
                 Section {
                     if pasting.contains(where: { $0.keystroke != .appleScript }) {
-                        msField("Key event interval for ⌘V", value: $pasteKeyIntervalMs,
+                        msField("Key event interval", value: $pasteKeyIntervalMs,
                                 range: Defaults.pasteKeyIntervalRange, step: 5)
                     }
                     if configs.contains(where: { $0.output == .paste }) {
@@ -356,6 +372,7 @@ private struct AppRulesSettings: View {
     @EnvironmentObject var state: AppState
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
     @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+    @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
     @State private var runningApps: [RunningApp] = []
 
@@ -368,7 +385,7 @@ private struct AppRulesSettings: View {
 
     /// 「出力」タブの設定。ルールの「既定」はこれに従う
     private var base: OutputConfig {
-        .base(output: outputMethod, keystroke: pasteKeystroke)
+        .base(output: outputMethod, keystroke: pasteKeystroke, customKey: pasteCustomKey)
     }
 
     private var rules: Binding<[AppRule]> {
@@ -457,7 +474,6 @@ private struct AppRuleRow: View {
     let base: OutputConfig
     let onRecordingChange: (Bool) -> Void
     let onRemove: () -> Void
-    @State private var keyProblem: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -479,38 +495,52 @@ private struct AppRuleRow: View {
             }
             if (rule.output ?? base.output) != .clipboard {
                 Picker("Paste with", selection: $rule.keystroke) {
-                    Text("Default (\(base.keystroke.label))").tag(PasteKeystroke?.none)
+                    Text("Default (\(base.keystrokeLabel))").tag(PasteKeystroke?.none)
                     Divider()
                     ForEach(PasteKeystroke.allCases) { Text($0.label).tag(Optional($0)) }
                 }
                 if rule.keystroke == .custom {
-                    LabeledContent("Key to send") {
-                        ShortcutRecorderView(
-                            shortcut: rule.customKey,
-                            defaultShortcut: nil,
-                            allowsShiftOnly: true,
-                            onChange: { key in
-                                keyProblem = key.sendProblem
-                                if keyProblem == nil { rule.customKey = key }
-                            },
-                            onRecordingChange: { recording in
-                                if recording { keyProblem = nil }
-                                onRecordingChange(recording)
-                            }
-                        )
-                    }
-                    if let keyProblem {
-                        Text(keyProblem).font(.caption).foregroundStyle(.red)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    } else if rule.customKey == nil {
-                        Text("Until you record a key, the default paste method is used.")
-                            .font(.caption).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
+                    CustomKeyField(key: $rule.customKey,
+                                   fallbackNote: "Until you record a key, the default paste method is used.",
+                                   onRecordingChange: onRecordingChange)
                 }
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// ⌘V の代わりに送るキーを記録する欄。送れないキーなら理由を出して保存しない
+private struct CustomKeyField: View {
+    @Binding var key: Shortcut?
+    /// キーを記録していないときの説明
+    let fallbackNote: LocalizedStringKey
+    let onRecordingChange: (Bool) -> Void
+    @State private var problem: String?
+
+    var body: some View {
+        LabeledContent("Key to send") {
+            ShortcutRecorderView(
+                shortcut: key,
+                defaultShortcut: nil,
+                allowsShiftOnly: true,
+                onChange: { new in
+                    problem = new.sendProblem
+                    if problem == nil { key = new }
+                },
+                onRecordingChange: { recording in
+                    if recording { problem = nil }
+                    onRecordingChange(recording)
+                }
+            )
+        }
+        if let problem {
+            Text(problem).font(.caption).foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        } else if key == nil {
+            Text(fallbackNote).font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
     }
 }
 
@@ -560,9 +590,8 @@ private extension View {
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in action() }
     }
 
-    /// 各タブで同じ見た目にする。幅をそろえ、高さは中身に合わせる (ウィンドウの高さもこれに合う)
-    /// scrolls なら高さを決めてスクロールさせる (アプリのルールのように増えていくもの)。
-    /// そうでなければ中身に合わせた大きさにする
+    /// 各タブで同じ見た目にする。幅をそろえ、高さは中身に合わせる (ウィンドウの高さもこれに合う)。
+    /// scrolls なら高さを決めてスクロールさせる (アプリのルールのように増えていくもの)
     func settingsForm(scrolls: Bool = false) -> some View {
         formStyle(.grouped)
             .scrollDisabled(!scrolls)

@@ -121,6 +121,8 @@ final class SpeechWorker {
         // 録音が長いと変換に時間がかかるので、メインスレッドの外で行う (その間も Esc を受け付ける)
         var data = await Task.detached { Self.encodeChunks(samples, sampleRate: sampleRate, id: id) }.value
         try Task.checkCancellation()
+        // 変換の間に worker が止まったり作り直されたりしたら、頼んでも返事は来ない
+        guard case .ready = state else { throw WorkerError(message: stateMessage) }
         var req: [String: Any] = ["type": "transcribe", "id": id, "sample_rate": sampleRate]
         req.merge(options) { _, new in new }
         data.append(Self.encode([req]))

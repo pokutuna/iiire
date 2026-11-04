@@ -23,11 +23,28 @@ final class AppRuleTests: XCTestCase {
         XCTAssertEqual(AppRule.decode("not json"), [])
     }
 
-    /// 「出力」タブではルール専用の送り方 (キーを指定) を既定にしない
+    /// 「出力」タブの「キーを指定」は、送れるキーを記録したときだけ使う
     func testBaseConfigFromSavedValues() {
-        XCTAssertEqual(OutputConfig.base(output: "clipboard", keystroke: "leftCommand"),
+        XCTAssertEqual(OutputConfig.base(output: "clipboard", keystroke: "leftCommand", customKey: ""),
                        OutputConfig(output: .clipboard, keystroke: .leftCommand))
-        XCTAssertEqual(OutputConfig.base(output: "?", keystroke: "custom"), base)
+        XCTAssertEqual(OutputConfig.base(output: "?", keystroke: "custom", customKey: ""), base)
+        let cmdV = combo(kVK_ANSI_Period, .command, "V") // Dvorak の V の位置
+        XCTAssertEqual(OutputConfig.base(output: "paste", keystroke: "custom", customKey: cmdV.encoded()),
+                       OutputConfig(output: .paste, keystroke: .custom, customKey: cmdV))
+    }
+
+    /// 既定が「キーを指定」なら、送り方を上書きしないルールはそのキーを使う
+    func testRulesInheritTheBaseCustomKey() {
+        let cmdV = combo(kVK_ANSI_Period, .command, "V")
+        let custom = OutputConfig(output: .paste, keystroke: .custom, customKey: cmdV)
+        let rules = [
+            AppRule(bundleID: "a", name: "A", output: .pasteAndKeep),
+            AppRule(bundleID: "b", name: "B", keystroke: .leftCommand),
+        ]
+        XCTAssertEqual(OutputConfig.resolve(bundleID: "a", rules: rules, default: custom),
+                       OutputConfig(output: .pasteAndKeep, keystroke: .custom, customKey: cmdV))
+        XCTAssertEqual(OutputConfig.resolve(bundleID: "b", rules: rules, default: custom),
+                       OutputConfig(output: .paste, keystroke: .leftCommand))
     }
 
     private func combo(_ keyCode: Int, _ mods: NSEvent.ModifierFlags, _ label: String) -> Shortcut {
@@ -38,6 +55,8 @@ final class AppRuleTests: XCTestCase {
         XCTAssertNil(combo(kVK_ANSI_Y, .control, "Y").sendProblem)
         XCTAssertNil(combo(kVK_ANSI_V, [.command, .shift], "V").sendProblem)
         XCTAssertNil(combo(kVK_F5, [], "F5").sendProblem)
+        // Dvorak では QWERTY の Q の位置は ' を打つ。⌘Q ではないので送れる
+        XCTAssertNil(combo(kVK_ANSI_Q, .command, "'").sendProblem)
     }
 
     func testKeysThatRunOrCloseAreRejected() {

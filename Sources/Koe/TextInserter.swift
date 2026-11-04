@@ -113,11 +113,7 @@ enum TextInserter {
             Log.info("paste: accessibility not granted")
             return false
         }
-        // 送るキーが録音のホットキーと同じなら送らない (自分の送ったキーで録音が始まってしまう)
-        let sends = config.keystroke == .custom ? config.customKey : nil
-        let hotkey = Defaults.shortcut
-        if hotkey.kind == .combo, hotkey.keyCode == (sends?.keyCode ?? 0x09),
-           hotkey.modifierFlags == (sends?.modifierFlags ?? .command) {
+        guard !sendsHotkey(config) else {
             Log.info("paste: the key to send is the recording hotkey")
             return false
         }
@@ -156,6 +152,22 @@ enum TextInserter {
         }
     }
 
+    /// 送るキーが録音のホットキーと同じか (同じなら、自分の送ったキーで録音が始まってしまう)
+    private static func sendsHotkey(_ config: OutputConfig) -> Bool {
+        let hotkey = Defaults.shortcut
+        guard hotkey.kind == .combo else { return false }
+        switch config.keystroke {
+        case .custom:
+            guard let key = config.customKey else { return false }
+            return hotkey.keyCode == key.keyCode && hotkey.modifierFlags == key.modifierFlags
+        case .appleScript:
+            // 文字 "v" を打つので、どのキーになるかは配列による。ホットキーを記録したときの文字で比べる
+            return hotkey.modifierFlags == .command && hotkey.keyLabel == "V"
+        default:
+            return hotkey.modifierFlags == .command && hotkey.keyCode == 0x09
+        }
+    }
+
     /// 修飾キーを順に押し、キーを押して離し、修飾キーを逆順に離す。
     /// 続けて送ると取りこぼすアプリがあるので、イベントの間を interval ms 空ける
     private static func postKey(_ key: CGKeyCode, modifiers: [ModifierKey], interval: Int) async -> Bool {
@@ -187,7 +199,7 @@ enum TextInserter {
         return true
     }
 
-    /// System Events に ⌘V を打ってもらう。文字 "v" を指定するので、キー配列に左右されない。
+    /// System Events に ⌘V を打ってもらう。文字 "v" を指定するので、多くのキー配列でそのまま使える。
     /// 初回は macOS が「System Events の制御」の許可を求める
     private static let pasteScript = NSAppleScript(source: #"tell application "System Events" to keystroke "v" using command down"#)
 
