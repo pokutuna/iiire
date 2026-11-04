@@ -36,7 +36,7 @@ final class ShortcutRecorderTests: XCTestCase {
 
     func testModifierAloneRecordsThatSide() {
         flags(kVK_RightCommand, .command)
-        XCTAssertEqual(model.preview, "右 ⌘ …")
+        XCTAssertEqual(model.preview, "Right ⌘ …")
         flags(kVK_RightCommand, [])
         XCTAssertEqual(finished, [Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightCommand), modifiers: 0, keyLabel: "")])
         XCTAssertFalse(model.isRecording)
@@ -75,7 +75,7 @@ final class ShortcutRecorderTests: XCTestCase {
         // 続けて単独で押せば登録できる
         flags(kVK_RightOption, .option)
         flags(kVK_RightOption, [])
-        XCTAssertEqual(finished.first??.displayName, "右 ⌥")
+        XCTAssertEqual(finished.first??.displayName, "Right ⌥")
     }
 
     func testEscapeCancels() {

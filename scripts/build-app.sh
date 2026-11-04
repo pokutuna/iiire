@@ -25,6 +25,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$ROOT/.build/release/Koe" "$APP/Contents/MacOS/Koe"
 cp "$SPEECH_BUILD/speech" "$APP/Contents/MacOS/speech"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
 
 # scripts/create-signing-identity.sh で作った証明書があればそれで署名する。
 # アドホック署名だと許可がビルドのハッシュ値に紐づき、作り直すたびにアクセシビリティの許可が外れる

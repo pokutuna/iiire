@@ -51,7 +51,7 @@ final class SpeechWorker {
     func start(model: String) {
         stop()
         guard let exe = Self.resolveExecutable() else {
-            state = .failed("speech コマンドが見つかりません。設定でパスを指定してください")
+            state = .failed(String(localized: "The speech command was not found. Set its path in Settings."))
             return
         }
         let p = Process()
@@ -83,13 +83,13 @@ final class SpeechWorker {
         do {
             try p.run()
         } catch {
-            state = .failed("speech worker を起動できません: \(error.localizedDescription)")
+            state = .failed(String(localized: "Cannot start the speech worker: \(error.localizedDescription)"))
             return
         }
         process = p
         stdin = inPipe.fileHandleForWriting
         modelName = model
-        state = .loading("\(model) を準備中…")
+        state = .loading(String(localized: "Preparing \(model)…"))
     }
 
     func stop() {
@@ -98,7 +98,7 @@ final class SpeechWorker {
         try? stdin?.close()
         stdin = nil
         if p.isRunning { p.terminate() }
-        failAll(WorkerError(message: "worker を停止しました"))
+        failAll(WorkerError(message: String(localized: "The worker was stopped.")))
         state = .stopped
     }
 
@@ -148,7 +148,7 @@ final class SpeechWorker {
         switch state {
         case .failed(let m): m
         case .loading(let m): m
-        case .stopped: "worker が起動していません"
+        case .stopped: String(localized: "The worker is not running.")
         case .ready: "ready"
         }
     }
@@ -251,7 +251,7 @@ final class SpeechWorker {
         let tail = String(data: stderrBuffer, encoding: .utf8)?
             .split(separator: "\n").last.map(String.init) ?? ""
         let msg: String
-        if case .failed(let m) = state { msg = m } else { msg = "worker が終了しました (status \(status)) \(tail)" }
+        if case .failed(let m) = state { msg = m } else { msg = String(localized: "The worker exited (status \(Int(status))) \(tail)") }
         state = .failed(msg)
         failAll(WorkerError(message: msg))
     }

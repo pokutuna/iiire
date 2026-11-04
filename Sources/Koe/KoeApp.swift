@@ -11,7 +11,7 @@ struct KoeApp: App {
             MenuBarIcon().environmentObject(delegate.state)
         }
 
-        Window("Koe 設定", id: "settings") {
+        Window("Koe Settings", id: "settings") {
             SettingsView().environmentObject(delegate.state)
         }
         .windowResizability(.contentSize)
@@ -54,15 +54,15 @@ private struct MenuContent: View {
     var body: some View {
         Text(statusText)
 
-        Button(state.phase == .recording ? "録音を止めて書き起こす" : "録音を開始") {
+        Button(state.phase == .recording ? String(localized: "Stop and Transcribe") : String(localized: "Start Recording")) {
             state.toggleFromMenu()
         }
         .disabled(state.phase == .transcribing)
-        Text("ホットキー: \(Defaults.shortcut.displayName) (短く押すとトグル、長押しで押している間)")
+        Text("Hotkey: \(Defaults.shortcut.displayName) (press to toggle, hold to talk)")
 
         if !state.history.isEmpty {
             Divider()
-            Text("履歴 (クリックでコピー)")
+            Text("History (click to copy)")
             ForEach(Array(state.history.enumerated()), id: \.offset) { _, text in
                 Button(text.count > 40 ? String(text.prefix(40)) + "…" : text) {
                     state.copyToClipboard(text)
@@ -71,21 +71,21 @@ private struct MenuContent: View {
         }
 
         Divider()
-        Button("設定…") {
+        Button("Settings…") {
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "settings")
         }
         .keyboardShortcut(",")
-        Button("Koe を終了") { NSApp.terminate(nil) }
+        Button("Quit Koe") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 
     private var statusText: String {
         if let e = state.lastError { return "⚠️ \(e)" }
         switch state.workerState {
-        case .stopped: return "停止中"
-        case .loading(let s): return "準備中: \(s)"
-        case .ready: return "準備完了: \(Defaults.model.id)"
+        case .stopped: return String(localized: "Stopped")
+        case .loading(let s): return String(localized: "Preparing: \(s)")
+        case .ready: return String(localized: "Ready: \(Defaults.model.id)")
         case .failed(let m): return "⚠️ \(m)"
         }
     }

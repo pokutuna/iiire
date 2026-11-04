@@ -85,7 +85,7 @@ final class AudioRecorder {
 
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            throw NSError(domain: "Koe", code: 1, userInfo: [NSLocalizedDescriptionKey: "入力デバイスを開けません"])
+            throw NSError(domain: "Koe", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Cannot open the input device.")])
         }
         sampleRate = Int(format.sampleRate)
 

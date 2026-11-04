@@ -72,7 +72,7 @@ final class ShortcutRecorderModel: ObservableObject {
                     finish(Shortcut(kind: .modifierOnly, keyCode: only, modifiers: 0, keyLabel: ""))
                     return
                 }
-                message = "修飾キーだけで登録できるのは 1 つのキーです"
+                message = String(localized: "Only one modifier key can be used on its own.")
             }
             preview = ""
         } else {
@@ -92,7 +92,7 @@ final class ShortcutRecorderModel: ObservableObject {
         }
         preview = Shortcut.modifierSymbols(mods) + label
         if mods.isEmpty, Shortcut.functionKeyNumber(e.keyCode) == nil {
-            message = "⌃ ⌥ ⇧ ⌘ のどれかと組み合わせてください (F キーは単独でも可)"
+            message = String(localized: "Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own).")
             return
         }
         finish(Shortcut(kind: .combo, keyCode: e.keyCode, modifiers: mods.rawValue, keyLabel: label))
@@ -142,21 +142,21 @@ struct ShortcutRecorderView: View {
                     .animation(.easeOut(duration: 0.1), value: model.preview)
 
                 if model.isRecording {
-                    Button("キャンセル") { model.cancel() }
+                    Button("Cancel") { model.cancel() }
                 } else {
-                    Button("変更…") {
+                    Button("Change…") {
                         onRecordingChange(true)
                         model.start()
                     }
                     if shortcut != .default {
-                        Button("既定に戻す") { onChange(.default) }
+                        Button("Reset to Default") { onChange(.default) }
                     }
                 }
             }
             if let message = model.message {
                 Text(message).font(.caption).foregroundStyle(.orange)
             } else if model.isRecording {
-                Text("登録するキーを押してください (Esc で取り消し)").font(.caption).foregroundStyle(.secondary)
+                Text("Press the keys to use (Esc to cancel)").font(.caption).foregroundStyle(.secondary)
             }
         }
         .onAppear {
@@ -170,6 +170,6 @@ struct ShortcutRecorderView: View {
 
     private var label: String {
         guard model.isRecording else { return shortcut.displayName }
-        return model.preview.isEmpty ? "キーを押す…" : model.preview
+        return model.preview.isEmpty ? String(localized: "Press keys…") : model.preview
     }
 }

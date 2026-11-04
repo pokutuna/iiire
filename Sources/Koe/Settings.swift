@@ -11,11 +11,11 @@ struct RecognitionModel: Identifiable, Hashable {
     let takesKeywords: Bool
 
     static let all: [RecognitionModel] = [
-        .init(id: "haas-ja-v1.0", label: "Haas ja v1.0 (ja, 速い, 0.66 GB)", takesPrompt: false, takesKeywords: true),
+        .init(id: "haas-ja-v1.0", label: String(localized: "Haas ja v1.0 (ja, fast, 0.66 GB)"), takesPrompt: false, takesKeywords: true),
         .init(id: "reazonspeech-v2", label: "ReazonSpeech v2 (ja, 0.66 GB)", takesPrompt: false, takesKeywords: false),
-        .init(id: "parakeet-tdt_ctc-0.6b-ja", label: "Parakeet TDT-CTC ja (ja, 短い発話, 0.66 GB)", takesPrompt: false, takesKeywords: false),
-        .init(id: "qwen3-asr-0.6b", label: "Qwen3-ASR 0.6B (多言語, 0.84 GB)", takesPrompt: true, takesKeywords: false),
-        .init(id: "qwen3-asr-1.7b", label: "Qwen3-ASR 1.7B (多言語, 2.18 GB)", takesPrompt: true, takesKeywords: false),
+        .init(id: "parakeet-tdt_ctc-0.6b-ja", label: String(localized: "Parakeet TDT-CTC ja (ja, short utterances, 0.66 GB)"), takesPrompt: false, takesKeywords: false),
+        .init(id: "qwen3-asr-0.6b", label: String(localized: "Qwen3-ASR 0.6B (multilingual, 0.84 GB)"), takesPrompt: true, takesKeywords: false),
+        .init(id: "qwen3-asr-1.7b", label: String(localized: "Qwen3-ASR 1.7B (multilingual, 2.18 GB)"), takesPrompt: true, takesKeywords: false),
     ]
 
     static func find(_ id: String) -> RecognitionModel {
@@ -32,9 +32,9 @@ enum OutputMethod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .paste: "カーソル位置に入力"
-        case .pasteAndKeep: "カーソル位置に入力 + クリップボードに残す"
-        case .clipboard: "クリップボードにコピーのみ"
+        case .paste: String(localized: "Type at cursor")
+        case .pasteAndKeep: String(localized: "Type at cursor and keep in clipboard")
+        case .clipboard: String(localized: "Copy to clipboard only")
         }
     }
 }

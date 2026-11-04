@@ -48,14 +48,14 @@ struct Shortcut: Codable, Equatable {
     /// 修飾キーの keyCode → 名前。修飾キーでなければ nil
     static func modifierKeyName(_ keyCode: UInt16) -> String? {
         switch Int(keyCode) {
-        case kVK_Command: "左 ⌘"
-        case kVK_RightCommand: "右 ⌘"
-        case kVK_Option: "左 ⌥"
-        case kVK_RightOption: "右 ⌥"
-        case kVK_Control: "左 ⌃"
-        case kVK_RightControl: "右 ⌃"
-        case kVK_Shift: "左 ⇧"
-        case kVK_RightShift: "右 ⇧"
+        case kVK_Command: String(localized: "Left ⌘")
+        case kVK_RightCommand: String(localized: "Right ⌘")
+        case kVK_Option: String(localized: "Left ⌥")
+        case kVK_RightOption: String(localized: "Right ⌥")
+        case kVK_Control: String(localized: "Left ⌃")
+        case kVK_RightControl: String(localized: "Right ⌃")
+        case kVK_Shift: String(localized: "Left ⇧")
+        case kVK_RightShift: String(localized: "Right ⇧")
         case kVK_Function: "fn"
         default: nil
         }
@@ -99,8 +99,8 @@ struct Shortcut: Codable, Equatable {
         case kVK_End: "End"
         case kVK_PageUp: "PageUp"
         case kVK_PageDown: "PageDown"
-        case kVK_JIS_Eisu: "英数"
-        case kVK_JIS_Kana: "かな"
+        case kVK_JIS_Eisu: String(localized: "Eisu")
+        case kVK_JIS_Kana: String(localized: "Kana")
         default: functionKeyNumber(keyCode).map { "F\($0)" }
         }
     }

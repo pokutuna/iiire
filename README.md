@@ -37,6 +37,14 @@ open build/Koe.app
 - **効果音**: 録音の開始と終了で音を鳴らす。既定はオンで、開始音 Tink、終了音 Pop。音は `~/Library/Sounds`、`/Library/Sounds`、`/System/Library/Sounds` にあるものから選べ、選ぶと試聴できる。開始音がマイクに入らないよう、録音の先頭の最大 0.2 秒を捨てる
 - **出力**: カーソル位置に入力 (クリップボードを元に戻す) / カーソル位置に入力してクリップボードにも残す / クリップボードにコピーのみ
 
+## 表示言語
+
+英語と日本語に対応し、macOS の言語設定に従う。アプリごとの言語は「システム設定 > 一般 > 言語と地域 > アプリケーション」で変えられる。
+
+- 画面の文字列はソースに英語で書き、日本語訳は `Resources/ja.lproj/Localizable.strings` に置く。キーは英語の文字列そのもの
+- マイク許可ダイアログの説明文の日本語訳は `Resources/ja.lproj/InfoPlist.strings`
+- 一時的に言語を変えて起動する: `build/Koe.app/Contents/MacOS/Koe -AppleLanguages '(en)'`
+
 ## しくみ
 
 - `speech worker MODEL` を子プロセスとして起動したままにし、[JSON Lines のプロトコル](https://github.com/nyosegawa/speech.cpp/blob/main/docs/worker.md)で録音を渡す

@@ -23,35 +23,35 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("音声認識") {
-                Picker("モデル", selection: $model) {
+            Section("Speech Recognition") {
+                Picker("Model", selection: $model) {
                     ForEach(RecognitionModel.all) { Text($0.label).tag($0.id) }
                 }
                 if RecognitionModel.find(model).takesPrompt {
-                    Picker("言語", selection: $language) {
-                        Text("自動").tag("auto")
-                        Text("日本語").tag("ja")
-                        Text("英語").tag("en")
+                    Picker("Language", selection: $language) {
+                        Text("Automatic").tag("auto")
+                        Text("Japanese").tag("ja")
+                        Text("English").tag("en")
                     }
                 }
                 let m = RecognitionModel.find(model)
                 if m.takesPrompt || m.takesKeywords {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(m.takesPrompt ? "ヒント (固有名詞や用語)" : "語彙 (1 行に 1 つ、表記=読み)")
+                        m.takesPrompt ? Text("Hint (names and terms)") : Text("Vocabulary (one per line, written=reading)")
                         TextEditor(text: $hint)
                             .font(.system(size: 12, design: .monospaced))
                             .frame(height: 60)
                     }
                 }
-                LabeledContent("状態", value: workerStatus)
+                LabeledContent("Status", value: workerStatus)
             }
 
-            Section("入力") {
-                Picker("マイク", selection: $inputDeviceUID) {
-                    Text("システムの既定").tag("")
+            Section("Input") {
+                Picker("Microphone", selection: $inputDeviceUID) {
+                    Text("System Default").tag("")
                     ForEach(devices) { Text($0.name).tag($0.uid) }
                 }
-                LabeledContent("ホットキー") {
+                LabeledContent("Hotkey") {
                     VStack(alignment: .trailing, spacing: 4) {
                         ShortcutRecorderView(
                             shortcut: Shortcut.decode(shortcutJSON) ?? Defaults.shortcut,
@@ -61,7 +61,7 @@ struct SettingsView: View {
                                     shortcutError = nil
                                     state.suspendHotkey()
                                 } else if !state.applyHotkey() {
-                                    shortcutError = "このショートカットは登録できません (他のアプリが使っている可能性があります)"
+                                    shortcutError = String(localized: "This shortcut cannot be registered. Another app may be using it.")
                                 }
                             }
                         )
@@ -70,36 +70,36 @@ struct SettingsView: View {
                         }
                     }
                 }
-                Text("短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。")
+                Text("Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels.")
                     .font(.caption).foregroundStyle(.secondary)
-                Toggle("録音の開始・終了で音を鳴らす", isOn: $soundCue)
+                Toggle("Play sounds when recording starts and stops", isOn: $soundCue)
                 if soundCue {
-                    soundPicker("開始音", selection: $startSound)
-                    soundPicker("終了音", selection: $stopSound)
+                    soundPicker("Start Sound", selection: $startSound)
+                    soundPicker("Stop Sound", selection: $stopSound)
                 }
             }
 
-            Section("出力") {
-                Picker("書き起こした文字列", selection: $outputMethod) {
+            Section("Output") {
+                Picker("Transcribed Text", selection: $outputMethod) {
                     ForEach(OutputMethod.allCases) { Text($0.label).tag($0.rawValue) }
                 }
             }
 
-            Section("権限") {
-                LabeledContent("マイク") {
+            Section("Permissions") {
+                LabeledContent("Microphone") {
                     if micStatus == .authorized {
-                        Text("許可済み")
+                        Text("Granted")
                     } else {
-                        Button("システム設定を開く") {
+                        Button("Open System Settings") {
                             open("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
                         }
                     }
                 }
-                LabeledContent("アクセシビリティ") {
+                LabeledContent("Accessibility") {
                     if axTrusted {
-                        Text("許可済み")
+                        Text("Granted")
                     } else {
-                        Button("許可する") {
+                        Button("Allow") {
                             TextInserter.requestAccessibility()
                             open("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
                         }
@@ -108,12 +108,12 @@ struct SettingsView: View {
             }
 
             Section {
-                TextField("パス (空なら自動)", text: $speechPath, prompt: Text(SpeechWorker.resolveExecutable() ?? "見つかりません"))
-                Button("worker を再起動") { state.restartWorker() }
+                TextField("Path (automatic if empty)", text: $speechPath, prompt: Text(SpeechWorker.resolveExecutable() ?? String(localized: "Not found")))
+                Button("Restart Worker") { state.restartWorker() }
             } header: {
-                Text("speech コマンド")
+                Text("speech Command")
             } footer: {
-                Text("設定は変更するとすぐに保存され、次の録音から使われます。speech コマンドのパスだけは「worker を再起動」で反映されます。")
+                Text("Settings are saved as soon as you change them and apply from the next recording. Only the speech command path needs “Restart Worker” to take effect.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -125,13 +125,13 @@ struct SettingsView: View {
         .onChange(of: model) { state.restartWorker() }
         .onChange(of: shortcutJSON) {
             if !state.applyHotkey() {
-                shortcutError = "このショートカットは登録できません (他のアプリが使っている可能性があります)"
+                shortcutError = String(localized: "This shortcut cannot be registered. Another app may be using it.")
             }
         }
     }
 
     /// 選ぶと鳴らす。▶ でもう一度鳴らせる
-    private func soundPicker(_ title: String, selection: Binding<String>) -> some View {
+    private func soundPicker(_ title: LocalizedStringKey, selection: Binding<String>) -> some View {
         HStack {
             Picker(title, selection: selection) {
                 // 保存した音が見つからなくなっても選択肢から消さない
@@ -146,15 +146,15 @@ struct SettingsView: View {
                 Image(systemName: "play.fill")
             }
             .buttonStyle(.borderless)
-            .help("試聴")
+            .help("Preview")
         }
     }
 
     private var workerStatus: String {
         switch state.workerState {
-        case .stopped: "停止中"
+        case .stopped: String(localized: "Stopped")
         case .loading(let s): s
-        case .ready: "準備完了"
+        case .ready: String(localized: "Ready")
         case .failed(let m): m
         }
     }

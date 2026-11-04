@@ -159,7 +159,7 @@ final class AppState: ObservableObject {
 
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .denied, .restricted:
-            fail("マイクへのアクセスが許可されていません (システム設定 > プライバシーとセキュリティ > マイク)")
+            fail(String(localized: "Microphone access is not allowed (System Settings > Privacy & Security > Microphone)."))
             return
         default: break
         }
@@ -169,7 +169,7 @@ final class AppState: ObservableObject {
         do {
             try recorder.start(deviceUID: Defaults.inputDeviceUID)
         } catch {
-            fail("録音を開始できません: \(error.localizedDescription)")
+            fail(String(localized: "Cannot start recording: \(error.localizedDescription)"))
             return
         }
         // マイクが開くまでに開始音が鳴り終わっていなければ、その分を後で捨てる
@@ -193,7 +193,7 @@ final class AppState: ObservableObject {
         }
         // 無音を渡すとモデルがそれらしい文を作ってしまう
         guard peak > 0.005 else {
-            fail("マイクの音が入っていません (設定でマイクを確認してください)")
+            fail(String(localized: "No sound from the microphone. Check the microphone in Settings."))
             return
         }
         // 入力が小さいマイク向けに、ピークが 0.5 になるまで持ち上げる (最大 10 倍)
@@ -231,7 +231,7 @@ final class AppState: ObservableObject {
                 Log.info("transcription cancelled")
                 setPhase(.idle)
             } catch {
-                fail("書き起こしに失敗: \(error.localizedDescription)")
+                fail(String(localized: "Transcription failed: \(error.localizedDescription)"))
             }
         }
     }
