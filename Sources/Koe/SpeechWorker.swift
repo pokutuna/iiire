@@ -118,24 +118,31 @@ final class SpeechWorker {
         nextID += 1
         let id = "r\(nextID)"
 
-        // 1 行が大きくなりすぎないよう 1 秒ずつ chunk にする
+        // 録音が長いと変換に時間がかかるので、メインスレッドの外で行う (その間も Esc を受け付ける)
+        var data = await Task.detached { Self.encodeChunks(samples, sampleRate: sampleRate, id: id) }.value
+        try Task.checkCancellation()
+        var req: [String: Any] = ["type": "transcribe", "id": id, "sample_rate": sampleRate]
+        req.merge(options) { _, new in new }
+        data.append(Self.encode([req]))
+
+        return try await withCheckedThrowingContinuation { cont in
+            pending[id] = cont
+            write(data)
+        }
+    }
+
+    /// 1 行が大きくなりすぎないよう 1 秒ずつ chunk にする
+    private nonisolated static func encodeChunks(_ samples: [Float], sampleRate: Int, id: String) -> Data {
         var lines: [[String: Any]] = []
         var seq = 0
         var offset = 0
         while offset < samples.count {
             let end = min(offset + sampleRate, samples.count)
-            lines.append(["type": "chunk", "id": id, "seq": seq, "pcm": Self.pcm16Base64(samples[offset..<end])])
+            lines.append(["type": "chunk", "id": id, "seq": seq, "pcm": pcm16Base64(samples[offset..<end])])
             seq += 1
             offset = end
         }
-        var req: [String: Any] = ["type": "transcribe", "id": id, "sample_rate": sampleRate]
-        req.merge(options) { _, new in new }
-        lines.append(req)
-
-        return try await withCheckedThrowingContinuation { cont in
-            pending[id] = cont
-            send(lines)
-        }
+        return encode(lines)
     }
 
     /// 書き起こしを頼んで結果を待っているものがある
@@ -167,13 +174,22 @@ final class SpeechWorker {
     }
 
     private func send(_ objects: [[String: Any]]) {
-        guard let stdin else { return }
+        write(Self.encode(objects))
+    }
+
+    /// JSON Lines にする
+    private nonisolated static func encode(_ objects: [[String: Any]]) -> Data {
         var data = Data()
         for obj in objects {
             guard let line = try? JSONSerialization.data(withJSONObject: obj) else { continue }
             data.append(line)
             data.append(0x0A)
         }
+        return data
+    }
+
+    private func write(_ data: Data) {
+        guard let stdin else { return }
         writeQueue.async {
             do { try stdin.write(contentsOf: data) } catch {
                 Log.info("write to worker failed: \(error)")
@@ -181,7 +197,7 @@ final class SpeechWorker {
         }
     }
 
-    private static func pcm16Base64(_ samples: ArraySlice<Float>) -> String {
+    private nonisolated static func pcm16Base64(_ samples: ArraySlice<Float>) -> String {
         var data = Data(count: samples.count * 2)
         data.withUnsafeMutableBytes { raw in
             let out = raw.bindMemory(to: Int16.self)

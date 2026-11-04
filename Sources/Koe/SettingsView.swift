@@ -401,7 +401,7 @@ private struct AppRulesSettings: View {
                 .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .settingsForm()
+        .settingsForm(scrolls: true)
         .onAppActive(perform: refreshRunningApps)
     }
 
@@ -561,10 +561,12 @@ private extension View {
     }
 
     /// 各タブで同じ見た目にする。幅をそろえ、高さは中身に合わせる (ウィンドウの高さもこれに合う)
-    func settingsForm() -> some View {
+    /// scrolls なら高さを決めてスクロールさせる (アプリのルールのように増えていくもの)。
+    /// そうでなければ中身に合わせた大きさにする
+    func settingsForm(scrolls: Bool = false) -> some View {
         formStyle(.grouped)
-            .scrollDisabled(true)
-            .frame(width: 500)
+            .scrollDisabled(!scrolls)
+            .frame(width: 500, height: scrolls ? 520 : nil)
             .fixedSize()
     }
 }

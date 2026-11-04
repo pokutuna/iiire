@@ -113,6 +113,14 @@ enum TextInserter {
             Log.info("paste: accessibility not granted")
             return false
         }
+        // 送るキーが録音のホットキーと同じなら送らない (自分の送ったキーで録音が始まってしまう)
+        let sends = config.keystroke == .custom ? config.customKey : nil
+        let hotkey = Defaults.shortcut
+        if hotkey.kind == .combo, hotkey.keyCode == (sends?.keyCode ?? 0x09),
+           hotkey.modifierFlags == (sends?.modifierFlags ?? .command) {
+            Log.info("paste: the key to send is the recording hotkey")
+            return false
+        }
         let interval = Defaults.pasteKeyIntervalMs
         switch config.keystroke {
         case .rightCommand:
