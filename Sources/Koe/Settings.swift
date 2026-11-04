@@ -51,6 +51,8 @@ enum SettingsKey {
     static let startSound = "startSound"
     static let stopSound = "stopSound"
     static let speechPath = "speechPath"
+    static let pasteKeyIntervalMs = "pasteKeyIntervalMs"
+    static let clipboardRestoreDelayMs = "clipboardRestoreDelayMs"
 }
 
 enum Defaults {
@@ -66,6 +68,8 @@ enum Defaults {
             SettingsKey.startSound: "Tink",
             SettingsKey.stopSound: "Pop",
             SettingsKey.speechPath: "",
+            SettingsKey.pasteKeyIntervalMs: 10,
+            SettingsKey.clipboardRestoreDelayMs: 300,
         ])
     }
 
@@ -100,4 +104,19 @@ enum Defaults {
         OutputMethod(rawValue: UserDefaults.standard.string(forKey: SettingsKey.outputMethod)!) ?? .paste
     }
     static var speechPath: String { UserDefaults.standard.string(forKey: SettingsKey.speechPath)! }
+
+    static let pasteKeyIntervalRange = 0...100
+    static let clipboardRestoreDelayRange = 100...3000
+    /// ⌘V のキー入力 (⌘ 押す, V 押す, V 離す, ⌘ 離す) の間隔
+    static var pasteKeyIntervalMs: Int {
+        UserDefaults.standard.integer(forKey: SettingsKey.pasteKeyIntervalMs).clamped(to: pasteKeyIntervalRange)
+    }
+    /// ⌘V を送ってから元のクリップボードに戻すまでの時間
+    static var clipboardRestoreDelayMs: Int {
+        UserDefaults.standard.integer(forKey: SettingsKey.clipboardRestoreDelayMs).clamped(to: clipboardRestoreDelayRange)
+    }
+}
+
+extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) }
 }

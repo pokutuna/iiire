@@ -16,6 +16,8 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.stopSound) private var stopSound = "Pop"
     @State private var soundNames: [String] = []
     @AppStorage(SettingsKey.speechPath) private var speechPath = ""
+    @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = 10
+    @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 300
 
     @State private var devices: [AudioInputDevice] = []
     @State private var axTrusted = TextInserter.isTrusted
@@ -83,6 +85,18 @@ struct SettingsView: View {
                 Picker("Transcribed Text", selection: $outputMethod) {
                     ForEach(OutputMethod.allCases) { Text($0.label).tag($0.rawValue) }
                 }
+                if outputMethod != OutputMethod.clipboard.rawValue {
+                    msField("Key event interval for ⌘V", value: $pasteKeyIntervalMs,
+                            range: Defaults.pasteKeyIntervalRange, step: 5)
+                }
+                if outputMethod == OutputMethod.paste.rawValue {
+                    msField("Restore clipboard after", value: $clipboardRestoreDelayMs,
+                            range: Defaults.clipboardRestoreDelayRange, step: 50)
+                }
+                if outputMethod != OutputMethod.clipboard.rawValue {
+                    Text("If text is not inserted or the previous clipboard gets pasted instead, increase these values.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
 
             Section("Permissions") {
@@ -126,6 +140,21 @@ struct SettingsView: View {
         .onChange(of: shortcutJSON) {
             if !state.applyHotkey() {
                 shortcutError = String(localized: "This shortcut cannot be registered. Another app may be using it.")
+            }
+        }
+    }
+
+    /// ミリ秒の入力欄。範囲外の値は範囲に収める
+    private func msField(_ title: LocalizedStringKey, value: Binding<Int>, range: ClosedRange<Int>, step: Int) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 4) {
+                TextField("", value: value, format: .number)
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 60)
+                    .onSubmit { value.wrappedValue = value.wrappedValue.clamped(to: range) }
+                Text("ms").foregroundStyle(.secondary)
+                Stepper("", value: value, in: range, step: step).labelsHidden()
             }
         }
     }

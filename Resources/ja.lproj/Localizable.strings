@@ -78,3 +78,6 @@
 "Type at cursor and keep in clipboard" = "カーソル位置に入力 + クリップボードに残す";
 "Vocabulary (one per line, written=reading)" = "語彙 (1 行に 1 つ、表記=読み)";
 "speech Command" = "speech コマンド";
+"Key event interval for ⌘V" = "⌘V のキー入力の間隔";
+"Restore clipboard after" = "クリップボードを戻すまで";
+"If text is not inserted or the previous clipboard gets pasted instead, increase these values." = "文字が入らないときや、前のクリップボードの中身が貼られるときは、値を大きくしてください。";
