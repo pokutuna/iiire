@@ -5,15 +5,35 @@
 
 ## ビルド
 
+macOS 14 以降、Apple silicon。Xcode か Command Line Tools (Swift 5.10 以降) と cmake (`brew install cmake`) が要る。
+
 ```sh
-scripts/create-signing-identity.sh   # 初回のみ
-scripts/build-app.sh            # speech.cpp を ~/ghq/github.com/nyosegawa/speech.cpp からビルドして同梱する
-open build/Koe.app
+git clone --recurse-submodules <このリポジトリ>
+make signing-identity   # 初回のみ
+make run                # ビルドして起動する
 ```
 
-- speech.cpp は `-DGGML_OPENMP=OFF` でビルドし、`Koe.app/Contents/MacOS/speech` に同梱する。作り直すときは `REBUILD_SPEECH=1` を付ける
+| make | 動作 |
+|---|---|
+| `make` / `make app` | speech.cpp と Koe をビルドし、`build/Koe.app` を作る |
+| `make run` | ビルドして起動する |
+| `make install` | `~/Applications/Koe.app` に入れる (`INSTALL_DIR=/Applications` で変えられる) |
+| `make test` | `swift test` |
+| `make clean` | `Koe.app` と Swift のビルドを消す |
+| `make distclean` | speech.cpp のビルドも含めて消す |
+
+- speech.cpp は submodule (`vendor/speech.cpp`) で、使う版を固定している。`build/speech.cpp` にビルドし、`Koe.app/Contents/MacOS/speech` に同梱する
+- `-DGGML_OPENMP=OFF -DGGML_NATIVE=OFF` でビルドし、Homebrew の libomp やビルドした Mac の CPU に依存しない単体の実行ファイルにする
 - モデルは初回に `speech` が Hugging Face から取得し、`~/Library/Caches/speech.cpp` に置く
-- 署名には `scripts/create-signing-identity.sh` で作る自己署名証明書「Koe Local Signing」を使う。アドホック署名だと許可がビルドのハッシュ値に紐づき、ビルドし直すたびにアクセシビリティの許可が外れるため
+- 署名には `make signing-identity` で作る自己署名証明書「Koe Local Signing」を使う。アドホック署名だと許可がビルドのハッシュ値に紐づき、ビルドし直すたびにアクセシビリティの許可が外れるため
+
+speech.cpp の版を上げるとき:
+
+```sh
+cd vendor/speech.cpp && git fetch --tags && git checkout v0.x.y && git submodule update --init --recursive && cd -
+make run
+git add vendor/speech.cpp
+```
 
 ## 使い方
 

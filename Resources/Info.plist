@@ -10,7 +10,7 @@
         <string>ja</string>
     </array>
     <key>CFBundleIdentifier</key>
-    <string>net.pokutuna.koe</string>
+    <string>io.github.pokutuna.koe</string>
     <key>CFBundleName</key>
     <string>Koe</string>
     <key>CFBundleDisplayName</key>

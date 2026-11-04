@@ -1,21 +1,16 @@
 #!/bin/bash
-# Koe.app を作る。speech.cpp をソースからビルドして .app に同梱する。
-#   scripts/build-app.sh [speech.cpp のディレクトリ]
+# Koe をビルドし、speech コマンドと一緒に Koe.app にまとめて署名する。
+# speech は make speech でビルドしておく (make app から呼ぶと両方やる)。
+#   SPEECH=path/to/speech scripts/build-app.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SPEECH_CPP="${1:-${SPEECH_CPP:-$HOME/ghq/github.com/nyosegawa/speech.cpp}}"
-SPEECH_BUILD="$SPEECH_CPP/build-koe"
+SPEECH="${SPEECH:-$ROOT/build/speech.cpp/speech}"
 APP="$ROOT/build/Koe.app"
 
-if [ ! -d "$SPEECH_CPP" ]; then
-  git clone --recurse-submodules https://github.com/nyosegawa/speech.cpp.git "$SPEECH_CPP"
-fi
-
-# OpenMP を切ると Homebrew の libomp に依存しない単体の実行ファイルになる
-if [ ! -x "$SPEECH_BUILD/speech" ] || [ -n "${REBUILD_SPEECH:-}" ]; then
-  cmake -S "$SPEECH_CPP" -B "$SPEECH_BUILD" -DCMAKE_BUILD_TYPE=Release -DGGML_OPENMP=OFF -DGGML_NATIVE=OFF
-  cmake --build "$SPEECH_BUILD" --config Release -j
+if [ ! -x "$SPEECH" ]; then
+  echo "error: $SPEECH がない (make speech でビルドする)" >&2
+  exit 1
 fi
 
 swift build --package-path "$ROOT" -c release
@@ -23,7 +18,7 @@ swift build --package-path "$ROOT" -c release
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$ROOT/.build/release/Koe" "$APP/Contents/MacOS/Koe"
-cp "$SPEECH_BUILD/speech" "$APP/Contents/MacOS/speech"
+cp "$SPEECH" "$APP/Contents/MacOS/speech"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
 
@@ -35,6 +30,6 @@ if ! security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
   IDENTITY="-"
 fi
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/speech"
-codesign --force --sign "$IDENTITY" --identifier net.pokutuna.koe "$APP"
+codesign --force --sign "$IDENTITY" --identifier io.github.pokutuna.koe "$APP"
 
 echo "built: $APP"
