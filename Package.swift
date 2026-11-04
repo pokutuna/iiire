@@ -13,6 +13,7 @@ let package = Package(
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("AVFoundation"),
             ]
-        )
+        ),
+        .testTarget(name: "KoeTests", dependencies: ["Koe"], path: "Tests/KoeTests"),
     ]
 )

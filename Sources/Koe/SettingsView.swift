@@ -7,7 +7,8 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.model) private var model = "haas-ja-v1.0"
     @AppStorage(SettingsKey.language) private var language = "auto"
     @AppStorage(SettingsKey.hint) private var hint = ""
-    @AppStorage(SettingsKey.hotkey) private var hotkey = Hotkey.rightOption.rawValue
+    @AppStorage(SettingsKey.shortcut) private var shortcutJSON = ""
+    @State private var shortcutError: String?
     @AppStorage(SettingsKey.inputDeviceUID) private var inputDeviceUID = ""
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
     @AppStorage(SettingsKey.speechPath) private var speechPath = ""
@@ -46,8 +47,24 @@ struct SettingsView: View {
                     Text("システムの既定").tag("")
                     ForEach(devices) { Text($0.name).tag($0.uid) }
                 }
-                Picker("ホットキー", selection: $hotkey) {
-                    ForEach(Hotkey.allCases) { Text($0.label).tag($0.rawValue) }
+                LabeledContent("ホットキー") {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        ShortcutRecorderView(
+                            shortcut: Shortcut.decode(shortcutJSON) ?? Defaults.shortcut,
+                            onChange: { shortcutJSON = $0.encoded() },
+                            onRecordingChange: { recording in
+                                if recording {
+                                    shortcutError = nil
+                                    state.suspendHotkey()
+                                } else if !state.applyHotkey() {
+                                    shortcutError = "このショートカットは登録できません (他のアプリが使っている可能性があります)"
+                                }
+                            }
+                        )
+                        if let shortcutError {
+                            Text(shortcutError).font(.caption).foregroundStyle(.red)
+                        }
+                    }
                 }
                 Text("短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -97,7 +114,11 @@ struct SettingsView: View {
         .onAppear(perform: refresh)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
         .onChange(of: model) { state.restartWorker() }
-        .onChange(of: hotkey) { state.applyHotkey() }
+        .onChange(of: shortcutJSON) {
+            if !state.applyHotkey() {
+                shortcutError = "このショートカットは登録できません (他のアプリが使っている可能性があります)"
+            }
+        }
     }
 
     private var workerStatus: String {

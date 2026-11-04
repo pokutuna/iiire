@@ -1,49 +1,125 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// 録音のホットキー。修飾キー単独、または Carbon で登録するキーの組み合わせ。
-enum Hotkey: String, CaseIterable, Identifiable {
-    case rightOption, rightCommand, rightControl, fn
-    case optionSpace, controlOptionSpace, f5
+/// 録音のホットキー。修飾キー単独 (左右を区別) か、修飾キーとキーの組み合わせ。
+struct Shortcut: Codable, Equatable {
+    enum Kind: String, Codable {
+        case modifierOnly   // keyCode は修飾キーそのもの (右 ⌥ なら kVK_RightOption)
+        case combo          // keyCode + modifiers を Carbon で登録する
+    }
 
-    var id: String { rawValue }
+    var kind: Kind
+    var keyCode: UInt16
+    /// combo の修飾 (NSEvent.ModifierFlags の ⌃⌥⇧⌘ のみ)
+    var modifiers: UInt
+    /// 押したときの文字 (配列に依存するので記録時に覚えておく)
+    var keyLabel: String
 
-    var label: String {
-        switch self {
-        case .rightOption: "右 ⌥ Option"
-        case .rightCommand: "右 ⌘ Command"
-        case .rightControl: "右 ⌃ Control"
-        case .fn: "fn / 🌐"
-        case .optionSpace: "⌥ Space"
-        case .controlOptionSpace: "⌃⌥ Space"
-        case .f5: "F5"
+    static let `default` = Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightOption), modifiers: 0, keyLabel: "")
+
+    var modifierFlags: NSEvent.ModifierFlags {
+        NSEvent.ModifierFlags(rawValue: modifiers).intersection(Self.comboModifiers)
+    }
+
+    static let comboModifiers: NSEvent.ModifierFlags = [.control, .option, .shift, .command]
+
+    var displayName: String {
+        switch kind {
+        case .modifierOnly:
+            return Self.modifierKeyName(keyCode) ?? "key \(keyCode)"
+        case .combo:
+            return Self.modifierSymbols(modifierFlags) + keyLabel
         }
     }
 
-    /// 修飾キー単独のときの keyCode と、そのキーが押されているときのフラグ
-    fileprivate var modifier: (keyCode: UInt16, flag: NSEvent.ModifierFlags)? {
-        switch self {
-        case .rightOption: (UInt16(kVK_RightOption), .option)
-        case .rightCommand: (UInt16(kVK_RightCommand), .command)
-        case .rightControl: (UInt16(kVK_RightControl), .control)
-        case .fn: (UInt16(kVK_Function), .function)
+    // MARK: 保存
+
+    func encoded() -> String {
+        (try? String(data: JSONEncoder().encode(self), encoding: .utf8)) ?? ""
+    }
+
+    static func decode(_ s: String) -> Shortcut? {
+        guard let data = s.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(Shortcut.self, from: data)
+    }
+
+    // MARK: 表示
+
+    /// 修飾キーの keyCode → 名前。修飾キーでなければ nil
+    static func modifierKeyName(_ keyCode: UInt16) -> String? {
+        switch Int(keyCode) {
+        case kVK_Command: "左 ⌘"
+        case kVK_RightCommand: "右 ⌘"
+        case kVK_Option: "左 ⌥"
+        case kVK_RightOption: "右 ⌥"
+        case kVK_Control: "左 ⌃"
+        case kVK_RightControl: "右 ⌃"
+        case kVK_Shift: "左 ⇧"
+        case kVK_RightShift: "右 ⇧"
+        case kVK_Function: "fn"
         default: nil
         }
     }
 
-    /// Carbon RegisterEventHotKey 用のキーと修飾
-    fileprivate var carbon: (keyCode: UInt32, modifiers: UInt32)? {
-        switch self {
-        case .optionSpace: (UInt32(kVK_Space), UInt32(optionKey))
-        case .controlOptionSpace: (UInt32(kVK_Space), UInt32(optionKey | controlKey))
-        case .f5: (UInt32(kVK_F5), 0)
+    /// 修飾キーの keyCode → それが押されているときに立つフラグ
+    static func modifierFlag(_ keyCode: UInt16) -> NSEvent.ModifierFlags? {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand: .command
+        case kVK_Option, kVK_RightOption: .option
+        case kVK_Control, kVK_RightControl: .control
+        case kVK_Shift, kVK_RightShift: .shift
+        case kVK_Function: .function
         default: nil
         }
+    }
+
+    static func modifierSymbols(_ flags: NSEvent.ModifierFlags) -> String {
+        var s = ""
+        if flags.contains(.control) { s += "⌃" }
+        if flags.contains(.option) { s += "⌥" }
+        if flags.contains(.shift) { s += "⇧" }
+        if flags.contains(.command) { s += "⌘" }
+        return s
+    }
+
+    /// 文字にならないキーの名前
+    static func specialKeyName(_ keyCode: UInt16) -> String? {
+        switch Int(keyCode) {
+        case kVK_Space: "Space"
+        case kVK_Return: "↩"
+        case kVK_Tab: "⇥"
+        case kVK_Delete: "⌫"
+        case kVK_ForwardDelete: "⌦"
+        case kVK_Escape: "Esc"
+        case kVK_LeftArrow: "←"
+        case kVK_RightArrow: "→"
+        case kVK_UpArrow: "↑"
+        case kVK_DownArrow: "↓"
+        case kVK_Home: "Home"
+        case kVK_End: "End"
+        case kVK_PageUp: "PageUp"
+        case kVK_PageDown: "PageDown"
+        case kVK_JIS_Eisu: "英数"
+        case kVK_JIS_Kana: "かな"
+        default: functionKeyNumber(keyCode).map { "F\($0)" }
+        }
+    }
+
+    static func functionKeyNumber(_ keyCode: UInt16) -> Int? {
+        let fkeys = [kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10,
+                     kVK_F11, kVK_F12, kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20]
+        return fkeys.firstIndex(of: Int(keyCode)).map { $0 + 1 }
+    }
+
+    static func keyLabel(for event: NSEvent) -> String {
+        if let name = specialKeyName(event.keyCode) { return name }
+        let c = event.charactersIgnoringModifiers ?? ""
+        return c.isEmpty ? "key \(event.keyCode)" : c.uppercased()
     }
 }
 
 /// ホットキーの押下・解放を通知する。
-/// 修飾キー単独は NSEvent のモニタで見る (アクセシビリティ権限が必要)。
+/// 修飾キー単独は NSEvent のモニタで見る (アクセシビリティ権限が必要)。組み合わせは Carbon で登録する。
 @MainActor
 final class HotkeyMonitor {
     var onPress: (() -> Void)?
@@ -56,12 +132,17 @@ final class HotkeyMonitor {
     private var handlerRef: EventHandlerRef?
     private var isDown = false
 
-    func start(_ hotkey: Hotkey) {
+    /// 登録できなければ false (他のアプリが同じ組み合わせを使っているなど)
+    @discardableResult
+    func start(_ shortcut: Shortcut) -> Bool {
         stop()
-        if let m = hotkey.modifier {
-            startModifier(keyCode: m.keyCode, flag: m.flag)
-        } else if let c = hotkey.carbon {
-            startCarbon(keyCode: c.keyCode, modifiers: c.modifiers)
+        switch shortcut.kind {
+        case .modifierOnly:
+            guard let flag = Shortcut.modifierFlag(shortcut.keyCode) else { return false }
+            startModifier(keyCode: shortcut.keyCode, flag: flag)
+            return true
+        case .combo:
+            return startCarbon(keyCode: UInt32(shortcut.keyCode), modifiers: Self.carbonModifiers(shortcut.modifierFlags))
         }
     }
 
@@ -73,6 +154,15 @@ final class HotkeyMonitor {
         if let handlerRef { RemoveEventHandler(handlerRef) }
         handlerRef = nil
         isDown = false
+    }
+
+    private static func carbonModifiers(_ flags: NSEvent.ModifierFlags) -> UInt32 {
+        var m = 0
+        if flags.contains(.command) { m |= cmdKey }
+        if flags.contains(.option) { m |= optionKey }
+        if flags.contains(.control) { m |= controlKey }
+        if flags.contains(.shift) { m |= shiftKey }
+        return UInt32(m)
     }
 
     // MARK: modifier-only
@@ -101,7 +191,7 @@ final class HotkeyMonitor {
 
     // MARK: Carbon hotkey
 
-    private func startCarbon(keyCode: UInt32, modifiers: UInt32) {
+    private func startCarbon(keyCode: UInt32, modifiers: UInt32) -> Bool {
         var types = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
@@ -124,6 +214,7 @@ final class HotkeyMonitor {
         }, types.count, &types, me, &handlerRef)
 
         let id = EventHotKeyID(signature: OSType(0x4B4F_4521), id: 1) // 'KOE!'
-        RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef)
+        let status = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef)
+        return status == noErr
     }
 }

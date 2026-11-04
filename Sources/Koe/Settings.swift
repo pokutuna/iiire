@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import Carbon.HIToolbox
 
 /// 認識モデル。speech.cpp のカタログ名をそのまま使う。
 struct RecognitionModel: Identifiable, Hashable {
@@ -42,7 +43,8 @@ enum SettingsKey {
     static let model = "model"
     static let language = "language"
     static let hint = "hint"
-    static let hotkey = "hotkey"
+    static let shortcut = "shortcut"
+    static let legacyHotkey = "hotkey"
     static let inputDeviceUID = "inputDeviceUID"
     static let outputMethod = "outputMethod"
     static let speechPath = "speechPath"
@@ -54,7 +56,7 @@ enum Defaults {
             SettingsKey.model: "haas-ja-v1.0",
             SettingsKey.language: "auto",
             SettingsKey.hint: "",
-            SettingsKey.hotkey: Hotkey.rightOption.rawValue,
+            SettingsKey.shortcut: "",
             SettingsKey.inputDeviceUID: "",
             SettingsKey.outputMethod: OutputMethod.paste.rawValue,
             SettingsKey.speechPath: "",
@@ -64,7 +66,26 @@ enum Defaults {
     static var model: RecognitionModel { .find(UserDefaults.standard.string(forKey: SettingsKey.model)!) }
     static var language: String { UserDefaults.standard.string(forKey: SettingsKey.language)! }
     static var hint: String { UserDefaults.standard.string(forKey: SettingsKey.hint)! }
-    static var hotkey: Hotkey { Hotkey(rawValue: UserDefaults.standard.string(forKey: SettingsKey.hotkey)!) ?? .rightOption }
+    static var shortcut: Shortcut {
+        let d = UserDefaults.standard
+        if let s = Shortcut.decode(d.string(forKey: SettingsKey.shortcut) ?? "") { return s }
+        // 以前のプリセット名で保存された設定
+        if let legacy = d.string(forKey: SettingsKey.legacyHotkey), let s = legacyShortcut(legacy) { return s }
+        return .default
+    }
+
+    private static func legacyShortcut(_ name: String) -> Shortcut? {
+        switch name {
+        case "rightOption": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightOption), modifiers: 0, keyLabel: "")
+        case "rightCommand": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightCommand), modifiers: 0, keyLabel: "")
+        case "rightControl": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightControl), modifiers: 0, keyLabel: "")
+        case "fn": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_Function), modifiers: 0, keyLabel: "")
+        case "optionSpace": Shortcut(kind: .combo, keyCode: UInt16(kVK_Space), modifiers: NSEvent.ModifierFlags.option.rawValue, keyLabel: "Space")
+        case "controlOptionSpace": Shortcut(kind: .combo, keyCode: UInt16(kVK_Space), modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue, keyLabel: "Space")
+        case "f5": Shortcut(kind: .combo, keyCode: UInt16(kVK_F5), modifiers: 0, keyLabel: "F5")
+        default: nil
+        }
+    }
     static var inputDeviceUID: String { UserDefaults.standard.string(forKey: SettingsKey.inputDeviceUID)! }
     static var outputMethod: OutputMethod {
         OutputMethod(rawValue: UserDefaults.standard.string(forKey: SettingsKey.outputMethod)!) ?? .paste

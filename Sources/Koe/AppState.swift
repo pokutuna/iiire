@@ -41,7 +41,7 @@ final class AppState: ObservableObject {
     }
 
     func launch() {
-        Log.info("launch: ax=\(TextInserter.isTrusted) mic=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue) hotkey=\(Defaults.hotkey.rawValue) model=\(Defaults.model.id) output=\(Defaults.outputMethod.rawValue)")
+        Log.info("launch: ax=\(TextInserter.isTrusted) mic=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue) shortcut=\(Defaults.shortcut.displayName) model=\(Defaults.model.id) output=\(Defaults.outputMethod.rawValue)")
         if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
             AVCaptureDevice.requestAccess(for: .audio) { _ in }
         }
@@ -69,8 +69,18 @@ final class AppState: ObservableObject {
         worker.stop()
     }
 
-    func applyHotkey() {
-        hotkeys.start(Defaults.hotkey)
+    /// 保存されたショートカットで監視し直す。登録できなければ false
+    @discardableResult
+    func applyHotkey() -> Bool {
+        let shortcut = Defaults.shortcut
+        let ok = hotkeys.start(shortcut)
+        Log.info("hotkey \(ok ? "registered" : "failed to register"): \(shortcut.displayName)")
+        return ok
+    }
+
+    /// 設定画面でショートカットを記録している間は、今のホットキーを止める
+    func suspendHotkey() {
+        hotkeys.stop()
     }
 
     func restartWorker() {

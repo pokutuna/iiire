@@ -58,7 +58,7 @@ private struct MenuContent: View {
             state.toggleFromMenu()
         }
         .disabled(state.phase == .transcribing)
-        Text("ホットキー: \(Defaults.hotkey.label) (短く押すとトグル、長押しで押している間)")
+        Text("ホットキー: \(Defaults.shortcut.displayName) (短く押すとトグル、長押しで押している間)")
 
         if !state.history.isEmpty {
             Divider()
