@@ -16,6 +16,9 @@ final class AppState: ObservableObject {
     /// モデル名 → ファイルを取得済みか、どこまで取得したか
     @Published private(set) var modelFiles: [String: ModelFile] = [:]
     private var watchingDownload = false
+    /// 録音を始めた時刻と、使っている入力デバイスの名前 (HUD に出す)
+    private(set) var recordingStartedAt: Date?
+    private(set) var recordingDevice: String?
 
     private let worker = SpeechWorker()
     private let recorder = AudioRecorder()
@@ -28,6 +31,10 @@ final class AppState: ObservableObject {
     /// これより長く押していたら押している間だけ録音 (push-to-talk)、短ければトグル
     private let holdThreshold: TimeInterval = 0.4
     private var transcribeTask: Task<Void, Never>?
+    /// 今の書き起こしの番号。取り消した後に届いた結果は捨てる
+    private var transcribeID = 0
+    /// 書き起こし中に Esc を一度押した。もう一度押すと worker を止める
+    @Published private(set) var cancelRequested = false
     /// 録音の先頭で捨てる秒数 (開始音がマイクに入った分)
     private var leadingTrim: TimeInterval = 0
 
@@ -39,7 +46,10 @@ final class AppState: ObservableObject {
             if case .loading = s { watchModelDownload() } else { refreshModels() }
         }
         recorder.onLevel = { [weak self] l in
-            Task { @MainActor in self?.level = l }
+            Task { @MainActor in
+                self?.level = l
+                self?.hud.push(level: l)
+            }
         }
         hotkeys.onPress = { [weak self] in self?.hotkeyPressed() }
         hotkeys.onRelease = { [weak self] in self?.hotkeyReleased() }
@@ -139,10 +149,32 @@ final class AppState: ObservableObject {
             recorder.stop()
             setPhase(.idle)
         case .transcribing:
-            worker.cancelAll()
+            // 1 回目は worker に取り消しを頼む。まだ読み込み中で頼むものがないとき、
+            // または 2 回目は、待たずに worker を止めて戻る
+            if cancelRequested || !worker.hasPendingRequests {
+                forceStopTranscription()
+            } else {
+                Log.info("cancel requested")
+                cancelRequested = true
+                worker.cancelAll()
+                hud.update()
+            }
         case .idle:
             break
         }
+    }
+
+    /// 応答を待たずに書き起こしをやめる。処理中なら worker を起動し直す
+    private func forceStopTranscription() {
+        Log.info("transcription abandoned")
+        transcribeID += 1
+        transcribeTask?.cancel()
+        transcribeTask = nil
+        if worker.hasPendingRequests {
+            worker.stop()
+            restartWorker()
+        }
+        setPhase(.idle)
     }
 
     func copyToClipboard(_ text: String) {
@@ -200,6 +232,7 @@ final class AppState: ObservableObject {
 
         let cueAt = Date()
         SoundCue.playStart()
+        Log.info("opening microphone")
         do {
             try recorder.start(deviceUID: Defaults.inputDeviceUID)
         } catch {
@@ -208,6 +241,8 @@ final class AppState: ObservableObject {
         }
         // マイクが開くまでに開始音が鳴り終わっていなければ、その分を後で捨てる
         leadingTrim = Defaults.soundCue ? max(0, SoundCue.startAudible - Date().timeIntervalSince(cueAt)) : 0
+        recordingStartedAt = Date()
+        recordingDevice = AudioDevices.recordingDeviceName(uid: Defaults.inputDeviceUID)
         Log.info("recording started: device=\(Defaults.inputDeviceUID.isEmpty ? "default" : Defaults.inputDeviceUID) rate=\(recorder.sampleRate)")
         setPhase(.recording)
     }
@@ -248,23 +283,31 @@ final class AppState: ObservableObject {
             options["keywords"] = hint
         }
 
+        transcribeID += 1
+        let id = transcribeID
         transcribeTask = Task {
             do {
                 let raw = try await worker.transcribe(samples: samples, sampleRate: rate, options: options)
+                guard id == transcribeID else { return }
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 Log.info("transcribed: \(text.debugDescription)")
                 if !text.isEmpty {
                     history.insert(text, at: 0)
                     if history.count > 10 { history.removeLast() }
+                    hud.expectResult()
                     setPhase(.idle)
-                    await TextInserter.insert(text)
+                    await TextInserter.insert(text) { [weak self] result in
+                        self?.hud.showResult(result, text: text)
+                    }
                 } else {
                     setPhase(.idle)
                 }
             } catch is CancellationError {
+                guard id == transcribeID else { return }
                 Log.info("transcription cancelled")
                 setPhase(.idle)
             } catch {
+                guard id == transcribeID else { return }
                 fail(String(localized: "Transcription failed: \(error.localizedDescription)"))
             }
         }
@@ -272,6 +315,7 @@ final class AppState: ObservableObject {
 
     private func setPhase(_ p: Phase) {
         phase = p
+        cancelRequested = false
         if p != .recording { level = 0 }
         updateEscMonitor()
         hud.update()

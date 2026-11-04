@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 
@@ -13,6 +14,12 @@ enum Main {
                 exit(await transcribeFile(args[2], model: model))
             }
             RunLoop.main.run()
+        }
+        // 画面の確認用: Koe --snapshot-hud DIR で HUD の各表示を PNG に書き出す
+        if args.count >= 3, args[1] == "--snapshot-hud" {
+            _ = NSApplication.shared
+            MainActor.assumeIsolated { HUDController.snapshot(to: URL(fileURLWithPath: args[2])) }
+            exit(0)
         }
         KoeApp.main()
     }

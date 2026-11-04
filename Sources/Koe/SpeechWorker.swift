@@ -105,6 +105,8 @@ final class SpeechWorker {
     /// モノラル PCM (Float, -1...1) を認識する。
     func transcribe(samples: [Float], sampleRate: Int, options: [String: Any]) async throws -> String {
         try await waitUntilReady()
+        // 読み込みを待つ間に取り消されていたら、頼まずに終える
+        try Task.checkCancellation()
         nextID += 1
         let id = "r\(nextID)"
 
@@ -127,6 +129,9 @@ final class SpeechWorker {
             send(lines)
         }
     }
+
+    /// 書き起こしを頼んで結果を待っているものがある
+    var hasPendingRequests: Bool { !pending.isEmpty }
 
     func cancelAll() {
         for id in pending.keys { send([["type": "cancel", "id": id]]) }

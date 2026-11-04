@@ -117,3 +117,9 @@
 "A modifier key alone cannot be sent." = "修飾キー単独は送れません。";
 "Return, Tab, Esc and Delete cannot be sent." = "Return、Tab、Esc、Delete は送れません。";
 "⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent." = "⌘Q、⌘W、⌘H、⌘M はアプリを閉じたり隠したりするので送れません。";
+
+/* HUD */
+"Copied to clipboard" = "クリップボードにコピーしました";
+"Could not paste. The text is in the clipboard." = "ペーストできませんでした。文字列はクリップボードにあります。";
+"Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc ですぐに止めます";
+"The microphone did not respond. Reconnect it or choose another microphone in Settings." = "マイクが応答しません。つなぎ直すか、設定で別のマイクを選んでください";

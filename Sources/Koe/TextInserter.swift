@@ -1,22 +1,31 @@
 import AppKit
 import ApplicationServices
 
+/// 入力した結果
+enum InsertResult: Equatable {
+    case pasted      // カーソル位置にペーストした
+    case copied      // クリップボードにコピーした (設定どおり)
+    case notPasted   // ペーストできず、クリップボードに残した
+}
+
 /// 書き起こした文字列をクリップボード経由でカーソル位置にペーストする。
 @MainActor
 enum TextInserter {
-    /// 入力先 (最前面のアプリ) のルールを当てて入力する
-    static func insert(_ text: String) async {
+    /// 入力先 (最前面のアプリ) のルールを当てて入力する。
+    /// onResult はペーストのキーを送った時点で呼ぶ (クリップボードを戻すのを待たない)
+    static func insert(_ text: String, onResult: (InsertResult) -> Void = { _ in }) async {
         let target = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         let config = Defaults.outputConfig(for: target)
         Log.info("insert into \(target ?? "?"): output=\(config.output.rawValue) keystroke=\(config.keystroke.rawValue)\(config.customKey.map { " " + $0.displayName } ?? "")")
-        await insert(text, config: config)
+        await insert(text, config: config, onResult: onResult)
     }
 
-    static func insert(_ text: String, config: OutputConfig) async {
+    static func insert(_ text: String, config: OutputConfig, onResult: (InsertResult) -> Void = { _ in }) async {
         let pb = NSPasteboard.general
 
         guard config.output != .clipboard else {
             put(text, on: pb, transient: false)
+            onResult(.copied)
             return
         }
 
@@ -28,8 +37,10 @@ enum TextInserter {
         try? await Task.sleep(for: .milliseconds(50))
         guard await sendPaste(config) else { // 送れなければクリップボードに残すだけ
             Log.info("paste skipped (text left in clipboard)")
+            onResult(.notPasted)
             return
         }
+        onResult(.pasted)
 
         guard let saved else { return }
         // ペースト先が読み終えるまで待ってから戻す

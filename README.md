@@ -43,6 +43,8 @@ git add vendor/speech.cpp
 | ホットキーを長押し | 押している間だけ録音し、離すと書き起こす |
 | Esc | 録音・書き起こしを取り消す |
 
+録音中は画面下部に、流れる波形、経過時間、使っている入力デバイスを出す。書き起こしが終わると、入力した文字列を短く出す (コピーのみのときや、ペーストできなかったときはそう示す)。
+
 既定のホットキーは右 ⌥。修飾キー単独のホットキーで、押したまま別のキーを押した場合は、ショートカットの一部とみなして録音を捨てる。
 
 ## 設定
@@ -100,4 +102,5 @@ build/Koe.app/Contents/MacOS/Koe --transcribe /tmp/t.wav [MODEL]
 ```sh
 build/Koe.app/Contents/MacOS/Koe --open-settings
 build/Koe.app/Contents/MacOS/Koe --snapshot-settings /tmp/shots -AppleLanguages '(en)'   # settings-<tab>.png を書き出して終了する
+build/Koe.app/Contents/MacOS/Koe --snapshot-hud /tmp/shots   # HUD の各表示を hud-<状態>-<light|dark>.png に書き出す
 ```
