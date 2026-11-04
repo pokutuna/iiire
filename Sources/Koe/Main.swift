@@ -5,6 +5,8 @@ import Foundation
 @main
 enum Main {
     static func main() {
+        // worker が先に終了したパイプに書いても落ちず、書き込みのエラーになるように
+        signal(SIGPIPE, SIG_IGN)
         Defaults.register()
         let args = CommandLine.arguments
         // 動作確認用: Koe --transcribe FILE [MODEL]

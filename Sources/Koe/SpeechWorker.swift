@@ -20,10 +20,9 @@ final class SpeechWorker {
     private(set) var state: State = .stopped {
         didSet { if state != oldValue { onStateChange?(state) } }
     }
-    private(set) var modelName: String?
-
     private var process: Process?
     private var stdin: FileHandle?
+    private var outputs: [FileHandle] = []
     private let writeQueue = DispatchQueue(label: "koe.worker.write")
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
@@ -67,14 +66,21 @@ final class SpeechWorker {
         p.standardOutput = outPipe
         p.standardError = errPipe
 
-        outPipe.fileHandleForReading.readabilityHandler = { [weak self] h in
-            let data = h.availableData
-            Task { @MainActor in self?.receiveStdout(data) }
+        stdoutBuffer = Data()
+        stderrBuffer = Data()
+        // EOF の後も空のデータで呼ばれ続けるので、EOF で外す。止めた後に届いた古いプロセスの出力は捨てる
+        func read(_ pipe: Pipe, _ receive: @escaping @MainActor (SpeechWorker, Data) -> Void) {
+            pipe.fileHandleForReading.readabilityHandler = { [weak self] h in
+                let data = h.availableData
+                if data.isEmpty { h.readabilityHandler = nil; return }
+                Task { @MainActor in
+                    guard let self, self.process === p else { return }
+                    receive(self, data)
+                }
+            }
         }
-        errPipe.fileHandleForReading.readabilityHandler = { [weak self] h in
-            let data = h.availableData
-            Task { @MainActor in self?.receiveStderr(data) }
-        }
+        read(outPipe) { $0.receiveStdout($1) }
+        read(errPipe) { $0.receiveStderr($1) }
         p.terminationHandler = { [weak self] proc in
             let status = proc.terminationStatus
             Task { @MainActor in self?.didTerminate(proc, status: status) }
@@ -88,7 +94,7 @@ final class SpeechWorker {
         }
         process = p
         stdin = inPipe.fileHandleForWriting
-        modelName = model
+        outputs = [outPipe.fileHandleForReading, errPipe.fileHandleForReading]
         state = .loading(String(localized: "Preparing \(model)…"))
     }
 
@@ -97,6 +103,8 @@ final class SpeechWorker {
         process = nil
         try? stdin?.close()
         stdin = nil
+        outputs.forEach { $0.readabilityHandler = nil }
+        outputs = []
         if p.isRunning { p.terminate() }
         failAll(WorkerError(message: String(localized: "The worker was stopped.")))
         state = .stopped
@@ -191,9 +199,12 @@ final class SpeechWorker {
         while let nl = stdoutBuffer.firstIndex(of: 0x0A) {
             let line = stdoutBuffer[stdoutBuffer.startIndex..<nl]
             stdoutBuffer.removeSubrange(stdoutBuffer.startIndex...nl)
-            guard !line.isEmpty,
-                  let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-                  let type = obj["type"] as? String else { continue }
+            guard !line.isEmpty else { continue }
+            guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                  let type = obj["type"] as? String else {
+                Log.info("unexpected worker output: \(String(decoding: line.prefix(200), as: UTF8.self))")
+                continue
+            }
             handle(type: type, obj: obj)
         }
     }
@@ -242,8 +253,9 @@ final class SpeechWorker {
         stderrBuffer.append(data)
         if stderrBuffer.count > 8192 { stderrBuffer = stderrBuffer.suffix(4096) }
         // 進捗表示のため、ロード中は stderr の最終行を状態に出す
-        guard case .loading = state,
-              let text = String(data: stderrBuffer, encoding: .utf8) else { return }
+        guard case .loading = state else { return }
+        // 切り詰めで UTF-8 の途中から始まることがあるので、壊れた分は置き換えて読む
+        let text = String(decoding: stderrBuffer, as: UTF8.self)
         let last = text.split(whereSeparator: { $0 == "\n" || $0 == "\r" })
             .last.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
         if !last.isEmpty { state = .loading(last) }
@@ -253,7 +265,8 @@ final class SpeechWorker {
         guard proc === process else { return } // stop() で止めたもの
         process = nil
         stdin = nil
-        let tail = String(data: stderrBuffer, encoding: .utf8)?
+        outputs = []
+        let tail = String(decoding: stderrBuffer, as: UTF8.self)
             .split(separator: "\n").last.map(String.init) ?? ""
         let msg: String
         if case .failed(let m) = state { msg = m } else { msg = String(localized: "The worker exited (status \(Int(status))) \(tail)") }

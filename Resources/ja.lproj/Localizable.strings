@@ -38,7 +38,6 @@
 "Permissions" = "権限";
 "Play sounds when recording starts and stops" = "録音の開始・終了で音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
-"Preparing: %@" = "準備中: %@";
 "Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。";
 "Press keys…" = "キーを押す…";
 "Press the keys to use (Esc to cancel)" = "登録するキーを押してください (Esc で取り消し)";
@@ -123,3 +122,6 @@
 "Could not paste. The text is in the clipboard." = "ペーストできませんでした。文字列はクリップボードにあります。";
 "Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc ですぐに止めます";
 "The microphone did not respond. Reconnect it or choose another microphone in Settings." = "マイクが応答しません。つなぎ直すか、設定で別のマイクを選んでください";
+"⇧ alone takes over typing. Add ⌃, ⌥ or ⌘." = "⇧ だけでは大文字の入力に使えなくなります。⌃、⌥、⌘ のいずれかを加えてください";
+"No audio arrived from the microphone. Reconnect it or choose another microphone in Settings." = "マイクから音が届きませんでした。つなぎ直すか、設定で別のマイクを選んでください";
+"Disconnected Microphone" = "接続されていないマイク";

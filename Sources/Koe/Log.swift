@@ -16,8 +16,8 @@ enum Log {
         queue.async {
             guard let data = line.data(using: .utf8) else { return }
             if let h = try? FileHandle(forWritingTo: url) {
-                h.seekToEndOfFile()
-                h.write(data)
+                _ = try? h.seekToEnd()
+                try? h.write(contentsOf: data)
                 try? h.close()
             } else {
                 try? data.write(to: url)

@@ -21,8 +21,13 @@ final class ShortcutRecorderModel: ObservableObject {
     /// その間に修飾キー以外のキーが押されたか
     private var gestureHadKey = false
 
+    /// 記録中のもの。同時に記録するのは 1 つだけにする
+    private static weak var current: ShortcutRecorderModel?
+
     func start() {
         guard !isRecording else { return }
+        if let other = Self.current, other !== self { other.cancel() }
+        Self.current = self
         isRecording = true
         message = nil
         preview = ""
@@ -91,11 +96,17 @@ final class ShortcutRecorderModel: ObservableObject {
             return
         }
         preview = Shortcut.modifierSymbols(mods) + label
-        if mods.isEmpty, Shortcut.functionKeyNumber(e.keyCode) == nil {
+        let shortcut = Shortcut(kind: .combo, keyCode: e.keyCode, modifiers: mods.rawValue, keyLabel: label)
+        if shortcut.lacksModifier {
             message = String(localized: "Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own).")
             return
         }
-        finish(Shortcut(kind: .combo, keyCode: e.keyCode, modifiers: mods.rawValue, keyLabel: label))
+        // ⇧ だけでは大文字の入力を奪ってしまう
+        if mods == .shift, Shortcut.functionKeyNumber(e.keyCode) == nil {
+            message = String(localized: "⇧ alone takes over typing. Add ⌃, ⌥ or ⌘.")
+            return
+        }
+        finish(shortcut)
     }
 
     /// 押している修飾キーの表示。1 つなら左右まで出す
@@ -148,6 +159,11 @@ struct ShortcutRecorderView: View {
                     Button("Cancel") { model.cancel() }
                 } else {
                     Button("Change…") {
+                        // 今の onChange を渡す (行が並べ替わっても、押したときの行に書く)
+                        model.onFinish = { s in
+                            if let s { onChange(s) }
+                            onRecordingChange(false)
+                        }
                         onRecordingChange(true)
                         model.start()
                     }
@@ -162,13 +178,11 @@ struct ShortcutRecorderView: View {
                 Text("Press the keys to use (Esc to cancel)").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .onAppear {
-            model.onFinish = { s in
-                if let s { onChange(s) }
-                onRecordingChange(false)
-            }
-        }
         .onDisappear { model.cancel() }
+        // 他のアプリに移ったらやめる (止めたホットキーをそのままにしない)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            model.cancel()
+        }
     }
 
     private var label: String {

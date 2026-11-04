@@ -7,12 +7,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Koe",
-            path: "Sources/Koe",
-            linkerSettings: [
-                .linkedFramework("Carbon"),
-                .linkedFramework("CoreAudio"),
-                .linkedFramework("AVFoundation"),
-            ]
+            path: "Sources/Koe"
         ),
         .testTarget(name: "KoeTests", dependencies: ["Koe"], path: "Tests/KoeTests"),
     ]

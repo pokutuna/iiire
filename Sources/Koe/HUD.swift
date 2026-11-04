@@ -20,8 +20,7 @@ final class HUDModel: ObservableObject {
     @Published private(set) var levels = [Float](repeating: 0, count: barCount)
 
     func push(_ level: Float) {
-        levels.removeFirst()
-        levels.append(level)
+        levels = levels.dropFirst() + [level] // 一度の代入で知らせる
     }
 
     func resetLevels() {
@@ -35,7 +34,7 @@ final class HUDModel: ObservableObject {
 final class HUDController {
     static let panelSize = NSSize(width: 560, height: 180)
 
-    private let state: AppState
+    private unowned let state: AppState // AppState が持つ
     private let model = HUDModel()
     private var panel: NSPanel?
     /// 結果やエラーを出している間は、待機中になっても消さない
@@ -75,6 +74,8 @@ final class HUDController {
 
     func showResult(_ result: InsertResult, text: String) {
         awaitingResult = false
+        // ペーストする間に次の録音が始まっていたら、録音の表示を残す
+        guard state.phase == .idle else { return }
         notice(.result(result, text), seconds: result == .notPasted ? 4 : 1.5)
     }
 
@@ -149,6 +150,7 @@ final class HUDController {
 
     /// 画面の確認用。各表示を PNG に書き出す (ライトとダーク)
     static func snapshot(to dir: URL) {
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let samples: [(String, HUDContent)] = [
             ("recording", .recording(startedAt: Date().addingTimeInterval(-7), device: "HyperX QuadCast S")),
             ("working", .working(String(localized: "Transcribing…"))),

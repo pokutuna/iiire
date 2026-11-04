@@ -74,7 +74,7 @@ extension Shortcut {
            quitsOrHides.contains(Int(keyCode)) || ["Q", "W", "H", "M"].contains(keyLabel.uppercased()) {
             return String(localized: "⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent.")
         }
-        if modifierFlags.isEmpty, Shortcut.functionKeyNumber(keyCode) == nil {
+        if lacksModifier {
             return String(localized: "Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own).")
         }
         return nil
@@ -107,6 +107,13 @@ struct OutputConfig: Equatable {
     var keystroke: PasteKeystroke
     /// keystroke が custom のときに送るキー。送ってよいキーに限る
     var customKey: Shortcut? = nil
+
+    /// 「出力」タブで保存した値から作る。アプリごとのルールでしか選べない送り方は既定に戻す
+    static func base(output: String, keystroke: String) -> OutputConfig {
+        let k = PasteKeystroke(rawValue: keystroke) ?? .rightCommand
+        return OutputConfig(output: OutputMethod(rawValue: output) ?? .paste,
+                            keystroke: PasteKeystroke.defaultChoices.contains(k) ? k : .rightCommand)
+    }
 
     /// bundleID のルールがあれば、その項目で既定を上書きする。
     /// custom なのにキーがない (まだ記録していない) か送れないキーなら、既定の送り方にする
@@ -162,9 +169,14 @@ enum Defaults {
         ])
     }
 
-    static var model: RecognitionModel { .find(UserDefaults.standard.string(forKey: SettingsKey.model)!) }
-    static var language: String { UserDefaults.standard.string(forKey: SettingsKey.language)! }
-    static var hint: String { UserDefaults.standard.string(forKey: SettingsKey.hint)! }
+    /// 文字列の設定。`defaults write` で別の型の値が入っていても落ちないように
+    private static func string(_ key: String) -> String {
+        UserDefaults.standard.string(forKey: key) ?? ""
+    }
+
+    static var model: RecognitionModel { .find(string(SettingsKey.model)) }
+    static var language: String { string(SettingsKey.language) }
+    static var hint: String { string(SettingsKey.hint) }
     static var shortcut: Shortcut {
         let d = UserDefaults.standard
         if let s = Shortcut.decode(d.string(forKey: SettingsKey.shortcut) ?? "") { return s }
@@ -185,23 +197,21 @@ enum Defaults {
         default: nil
         }
     }
-    static var inputDeviceUID: String { UserDefaults.standard.string(forKey: SettingsKey.inputDeviceUID)! }
+    static var inputDeviceUID: String { string(SettingsKey.inputDeviceUID) }
     static var soundCue: Bool { UserDefaults.standard.bool(forKey: SettingsKey.soundCue) }
-    static var startSound: String { UserDefaults.standard.string(forKey: SettingsKey.startSound)! }
-    static var stopSound: String { UserDefaults.standard.string(forKey: SettingsKey.stopSound)! }
-    static var outputMethod: OutputMethod {
-        OutputMethod(rawValue: UserDefaults.standard.string(forKey: SettingsKey.outputMethod)!) ?? .paste
+    static var startSound: String { string(SettingsKey.startSound) }
+    static var stopSound: String { string(SettingsKey.stopSound) }
+    /// 「出力」タブの設定
+    static var baseOutputConfig: OutputConfig {
+        .base(output: string(SettingsKey.outputMethod), keystroke: string(SettingsKey.pasteKeystroke))
     }
-    static var pasteKeystroke: PasteKeystroke {
-        let k = PasteKeystroke(rawValue: UserDefaults.standard.string(forKey: SettingsKey.pasteKeystroke)!) ?? .rightCommand
-        return PasteKeystroke.defaultChoices.contains(k) ? k : .rightCommand
-    }
-    static var appRules: [AppRule] { AppRule.decode(UserDefaults.standard.string(forKey: SettingsKey.appRules)!) }
+    static var outputMethod: OutputMethod { baseOutputConfig.output }
+    static var appRules: [AppRule] { AppRule.decode(string(SettingsKey.appRules)) }
     /// 入力先のアプリ (bundleID) に使う出力の設定
     static func outputConfig(for bundleID: String?) -> OutputConfig {
-        .resolve(bundleID: bundleID, rules: appRules, default: OutputConfig(output: outputMethod, keystroke: pasteKeystroke))
+        .resolve(bundleID: bundleID, rules: appRules, default: baseOutputConfig)
     }
-    static var speechPath: String { UserDefaults.standard.string(forKey: SettingsKey.speechPath)! }
+    static var speechPath: String { string(SettingsKey.speechPath) }
 
     static let pasteKeyIntervalRange = 0...100
     static let clipboardRestoreDelayRange = 100...3000

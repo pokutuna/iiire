@@ -10,7 +10,6 @@ final class AppState: ObservableObject {
 
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var workerState: SpeechWorker.State = .stopped
-    @Published private(set) var level: Float = 0
     @Published private(set) var history: [String] = []
     @Published private(set) var lastError: String?
     /// モデル名 → ファイルを取得済みか、どこまで取得したか
@@ -46,10 +45,7 @@ final class AppState: ObservableObject {
             if case .loading = s { watchModelDownload() } else { refreshModels() }
         }
         recorder.onLevel = { [weak self] l in
-            Task { @MainActor in
-                self?.level = l
-                self?.hud.push(level: l)
-            }
+            Task { @MainActor in self?.hud.push(level: l) }
         }
         hotkeys.onPress = { [weak self] in self?.hotkeyPressed() }
         hotkeys.onRelease = { [weak self] in self?.hotkeyReleased() }
@@ -170,16 +166,12 @@ final class AppState: ObservableObject {
         transcribeID += 1
         transcribeTask?.cancel()
         transcribeTask = nil
-        if worker.hasPendingRequests {
-            worker.stop()
-            restartWorker()
-        }
+        if worker.hasPendingRequests { restartWorker() } // start が前の worker を止める
         setPhase(.idle)
     }
 
     func copyToClipboard(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        TextInserter.put(text, on: .general, transient: false)
     }
 
     // MARK: - ホットキー
@@ -188,8 +180,10 @@ final class AppState: ObservableObject {
         Log.info("hotkey pressed (phase=\(phase))")
         switch phase {
         case .idle:
+            // マイクを開くのに時間がかかっても、押した時刻から長押しを測る
+            let now = Date()
             startRecording()
-            if phase == .recording { pressedAt = Date() }
+            if phase == .recording { pressedAt = now }
         case .recording:
             // トグルモードで録音中。もう一度押したら止める
             pressedAt = nil
@@ -220,8 +214,10 @@ final class AppState: ObservableObject {
     private func startRecording() {
         guard phase == .idle else { return }
         lastError = nil
-        if case .failed = workerState { restartWorker() }
-        if case .stopped = workerState { restartWorker() }
+        switch workerState {
+        case .failed, .stopped: restartWorker()
+        default: break
+        }
 
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .denied, .restricted:
@@ -242,8 +238,8 @@ final class AppState: ObservableObject {
         // マイクが開くまでに開始音が鳴り終わっていなければ、その分を後で捨てる
         leadingTrim = Defaults.soundCue ? max(0, SoundCue.startAudible - Date().timeIntervalSince(cueAt)) : 0
         recordingStartedAt = Date()
-        recordingDevice = AudioDevices.recordingDeviceName(uid: Defaults.inputDeviceUID)
-        Log.info("recording started: device=\(Defaults.inputDeviceUID.isEmpty ? "default" : Defaults.inputDeviceUID) rate=\(recorder.sampleRate)")
+        recordingDevice = recorder.deviceName
+        Log.info("recording started: device=\(recorder.deviceName ?? "?") rate=\(recorder.sampleRate)")
         setPhase(.recording)
     }
 
@@ -254,7 +250,13 @@ final class AppState: ObservableObject {
         let rate = recorder.sampleRate
         samples.removeFirst(min(samples.count, Int(leadingTrim * Double(rate))))
         let peak = samples.reduce(Float(0)) { max($0, abs($1)) }
-        Log.info("recording stopped: \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / Double(rate)))s) peak=\(peak)")
+        let elapsed = Date().timeIntervalSince(recordingStartedAt ?? Date())
+        Log.info("recording stopped: \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / Double(rate)))s of \(String(format: "%.2f", elapsed))s) peak=\(peak)")
+        // マイクから音が届いていない。押していた時間で判断する (サンプル数では誤操作と区別できない)
+        if elapsed > 1, samples.count < rate * 3 / 10 {
+            fail(String(localized: "No audio arrived from the microphone. Reconnect it or choose another microphone in Settings."))
+            return
+        }
         // 0.3 秒未満は誤操作とみなす
         guard samples.count > rate * 3 / 10 else {
             setPhase(.idle)
@@ -316,7 +318,7 @@ final class AppState: ObservableObject {
     private func setPhase(_ p: Phase) {
         phase = p
         cancelRequested = false
-        if p != .recording { level = 0 }
+        if p != .recording { pressedAt = nil }
         updateEscMonitor()
         hud.update()
     }

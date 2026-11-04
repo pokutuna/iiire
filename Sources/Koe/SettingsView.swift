@@ -68,8 +68,8 @@ private struct GeneralSettings: View {
                                 if recording {
                                     shortcutError = nil
                                     state.suspendHotkey()
-                                } else if !state.applyHotkey() {
-                                    shortcutError = Self.shortcutErrorText
+                                } else {
+                                    applyHotkey()
                                 }
                             }
                         )
@@ -81,6 +81,10 @@ private struct GeneralSettings: View {
                 Picker("Microphone", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
                     ForEach(devices) { Text($0.name).tag($0.uid) }
+                    // 選んだマイクが外れていても、選択を空にしない (録音はシステムの既定を使う)
+                    if !inputDeviceUID.isEmpty, !devices.contains(where: { $0.uid == inputDeviceUID }) {
+                        Text("Disconnected Microphone").tag(inputDeviceUID)
+                    }
                 }
             } footer: {
                 Text("Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels.")
@@ -121,15 +125,13 @@ private struct GeneralSettings: View {
             }
         }
         .settingsForm()
-        .onAppear(perform: refresh)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
-        .onChange(of: shortcutJSON) {
-            if !state.applyHotkey() { shortcutError = Self.shortcutErrorText }
-        }
+        .onAppActive(perform: refresh)
+        .onChange(of: shortcutJSON) { applyHotkey() }
     }
 
-    private static var shortcutErrorText: String {
-        String(localized: "This shortcut cannot be registered. Another app may be using it.")
+    private func applyHotkey() {
+        shortcutError = state.applyHotkey()
+            ? nil : String(localized: "This shortcut cannot be registered. Another app may be using it.")
     }
 
     /// 選ぶと鳴らす。▶ でもう一度鳴らせる
@@ -282,14 +284,16 @@ private struct OutputSettings: View {
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
 
     private var base: OutputConfig {
-        OutputConfig(output: OutputMethod(rawValue: outputMethod) ?? .paste,
-                     keystroke: PasteKeystroke(rawValue: pasteKeystroke) ?? .rightCommand)
+        .base(output: outputMethod, keystroke: pasteKeystroke)
     }
 
     /// 既定とルールで実際に使う設定。どの欄を出すかの判断に使う
     private var configs: [OutputConfig] {
         [base] + AppRule.decode(appRulesJSON).map { OutputConfig.resolve(bundleID: $0.bundleID, rules: [$0], default: base) }
     }
+
+    /// そのうちペーストするもの
+    private var pasting: [OutputConfig] { configs.filter { $0.output != .clipboard } }
 
     var body: some View {
         Form {
@@ -303,15 +307,15 @@ private struct OutputSettings: View {
                     }
                 }
             } footer: {
-                if configs.contains(where: { $0.output != .clipboard && $0.keystroke == .appleScript }) {
+                if pasting.contains(where: { $0.keystroke == .appleScript }) {
                     Text("AppleScript works regardless of the keyboard layout. macOS asks for permission to control System Events the first time.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
-            if configs.contains(where: { $0.output != .clipboard }) {
+            if !pasting.isEmpty {
                 Section {
-                    if configs.contains(where: { $0.output != .clipboard && $0.keystroke != .appleScript }) {
+                    if pasting.contains(where: { $0.keystroke != .appleScript }) {
                         msField("Key event interval for ⌘V", value: $pasteKeyIntervalMs,
                                 range: Defaults.pasteKeyIntervalRange, step: 5)
                     }
@@ -339,7 +343,7 @@ private struct OutputSettings: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 60)
                     .onSubmit { value.wrappedValue = value.wrappedValue.clamped(to: range) }
-                Text("ms").foregroundStyle(.secondary)
+                Text(verbatim: "ms").foregroundStyle(.secondary)
                 Stepper("", value: value, in: range, step: step).labelsHidden()
             }
         }
@@ -353,12 +357,18 @@ private struct AppRulesSettings: View {
     @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
     @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
-    @State private var runningApps: [NSRunningApplication] = []
+    @State private var runningApps: [RunningApp] = []
+
+    /// 「アプリを追加」に並べる起動中のアプリ。アイコンは一覧を作るときに読む
+    struct RunningApp: Identifiable {
+        let id: String // bundleID
+        let name: String
+        let icon: NSImage
+    }
 
     /// 「出力」タブの設定。ルールの「既定」はこれに従う
     private var base: OutputConfig {
-        OutputConfig(output: OutputMethod(rawValue: outputMethod) ?? .paste,
-                     keystroke: PasteKeystroke(rawValue: pasteKeystroke) ?? .rightCommand)
+        .base(output: outputMethod, keystroke: pasteKeystroke)
     }
 
     private var rules: Binding<[AppRule]> {
@@ -392,24 +402,19 @@ private struct AppRulesSettings: View {
             }
         }
         .settingsForm()
-        .onAppear(perform: refreshRunningApps)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshRunningApps()
-        }
+        .onAppActive(perform: refreshRunningApps)
     }
 
     /// 起動中のアプリから選ぶか、アプリケーションフォルダから選ぶ
     private var addAppMenu: some View {
         let added = Set(rules.wrappedValue.map(\.bundleID))
-        let candidates = runningApps.filter { !added.contains($0.bundleIdentifier ?? "") }
+        let candidates = runningApps.filter { !added.contains($0.id) }
         return Menu("Add App") {
-            ForEach(candidates, id: \.processIdentifier) { app in
+            ForEach(candidates) { app in
                 Button {
-                    addRule(bundleID: app.bundleIdentifier!, name: app.localizedName ?? app.bundleIdentifier!)
+                    addRule(bundleID: app.id, name: app.name)
                 } label: {
-                    Label { Text(app.localizedName ?? app.bundleIdentifier!) } icon: {
-                        Image(nsImage: AppIcon.image(for: app.bundleIdentifier!, size: 16))
-                    }
+                    Label { Text(app.name) } icon: { Image(nsImage: app.icon) }
                 }
             }
             if !candidates.isEmpty { Divider() }
@@ -420,9 +425,14 @@ private struct AppRulesSettings: View {
 
     private func refreshRunningApps() {
         let me = Bundle.main.bundleIdentifier
+        var seen = Set<String>()
         runningApps = NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil && $0.bundleIdentifier != me }
-            .sorted { ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending }
+            .compactMap { app -> RunningApp? in
+                guard app.activationPolicy == .regular, let id = app.bundleIdentifier, id != me,
+                      seen.insert(id).inserted else { return nil }
+                return RunningApp(id: id, name: app.localizedName ?? id, icon: AppIcon.image(for: id, size: 16))
+            }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private func addRule(bundleID: String, name: String) {
@@ -439,7 +449,6 @@ private struct AppRulesSettings: View {
         let name = FileManager.default.displayName(atPath: url.path)
         addRule(bundleID: id, name: name.hasSuffix(".app") ? String(name.dropLast(4)) : name)
     }
-
 }
 
 /// アプリごとのルール 1 件。「既定」を選んだ項目は上の設定に従う
@@ -544,6 +553,12 @@ private struct AdvancedSettings: View {
 }
 
 private extension View {
+    /// 表示したときと、アプリに戻ってきたときに呼ぶ (システム設定での変更などを拾う)
+    func onAppActive(perform action: @escaping () -> Void) -> some View {
+        onAppear(perform: action)
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in action() }
+    }
+
     /// 各タブで同じ見た目にする。幅をそろえ、高さは中身に合わせる (ウィンドウの高さもこれに合う)
     func settingsForm() -> some View {
         formStyle(.grouped)

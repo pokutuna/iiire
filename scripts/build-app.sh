@@ -14,10 +14,11 @@ if [ ! -x "$SPEECH" ]; then
 fi
 
 swift build --package-path "$ROOT" -c release
+BIN="$(swift build --package-path "$ROOT" -c release --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$ROOT/.build/release/Koe" "$APP/Contents/MacOS/Koe"
+cp "$BIN/Koe" "$APP/Contents/MacOS/Koe"
 cp "$SPEECH" "$APP/Contents/MacOS/speech"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
@@ -25,7 +26,8 @@ cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
 # scripts/create-signing-identity.sh で作った証明書があればそれで署名する。
 # アドホック署名だと許可がビルドのハッシュ値に紐づき、作り直すたびにアクセシビリティの許可が外れる
 IDENTITY="${KOE_SIGN_IDENTITY:-Koe Local Signing}"
-if ! security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
+# 証明書だけでなく秘密鍵もある (署名に使える) ものを、名前の完全一致で探す
+if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
   echo "warning: '$IDENTITY' がないのでアドホック署名にする (scripts/create-signing-identity.sh で作れる)" >&2
   IDENTITY="-"
 fi

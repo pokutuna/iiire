@@ -13,15 +13,21 @@ enum InsertResult: Equatable {
 enum TextInserter {
     /// 入力先 (最前面のアプリ) のルールを当てて入力する。
     /// onResult はペーストのキーを送った時点で呼ぶ (クリップボードを戻すのを待たない)
-    static func insert(_ text: String, onResult: (InsertResult) -> Void = { _ in }) async {
+    static func insert(_ text: String, onResult: (InsertResult) -> Void) async {
         let target = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         let config = Defaults.outputConfig(for: target)
         Log.info("insert into \(target ?? "?"): output=\(config.output.rawValue) keystroke=\(config.keystroke.rawValue)\(config.customKey.map { " " + $0.displayName } ?? "")")
         await insert(text, config: config, onResult: onResult)
     }
 
-    static func insert(_ text: String, config: OutputConfig, onResult: (InsertResult) -> Void = { _ in }) async {
+    /// 戻す前のクリップボードの中身と、文字列を置いた後の changeCount。
+    /// 戻す前に次の入力が来たら、この中身を引き継ぐ (置いた文字列を元の中身と取り違えない)
+    private static var pendingRestore: (items: [NSPasteboardItem], changeCount: Int)?
+
+    static func insert(_ text: String, config: OutputConfig, onResult: (InsertResult) -> Void) async {
         let pb = NSPasteboard.general
+        let pending = pendingRestore.flatMap { $0.changeCount == pb.changeCount ? $0.items : nil }
+        pendingRestore = nil
 
         guard config.output != .clipboard else {
             put(text, on: pb, transient: false)
@@ -29,14 +35,20 @@ enum TextInserter {
             return
         }
 
-        let saved = config.output == .paste ? snapshot(pb) : nil
+        let saved = config.output == .paste ? (pending ?? snapshot(pb)) : nil
         // 元に戻すなら一時的な中身なので、履歴を取るアプリに残さないよう伝える
         put(text, on: pb, transient: saved != nil)
         let changeCount = pb.changeCount
+        if let saved { pendingRestore = (saved, changeCount) }
 
         try? await Task.sleep(for: .milliseconds(50))
-        guard await sendPaste(config) else { // 送れなければクリップボードに残すだけ
+        guard await sendPaste(config) else {
+            // 送れなければクリップボードに残す。戻さないので、履歴にも残してよいものとして置き直す
             Log.info("paste skipped (text left in clipboard)")
+            if pb.changeCount == changeCount {
+                pendingRestore = nil
+                if saved != nil { put(text, on: pb, transient: false) }
+            }
             onResult(.notPasted)
             return
         }
@@ -45,9 +57,18 @@ enum TextInserter {
         guard let saved else { return }
         // ペースト先が読み終えるまで待ってから戻す
         try? await Task.sleep(for: .milliseconds(Defaults.clipboardRestoreDelayMs))
-        guard pb.changeCount == changeCount else { return } // その間に誰かがコピーした
+        // その間に誰かがコピーしたか、次の入力が引き継いだ
+        guard pb.changeCount == changeCount else { return }
+        pendingRestore = nil
         pb.clearContents()
         if !saved.isEmpty { pb.writeObjects(saved) }
+    }
+
+    /// Koe が送ったキー入力の目印 (eventSourceUserData)。自分のホットキーとして拾わないために使う
+    private nonisolated static let eventMarker: Int64 = 0x4B4F45 // "KOE"
+
+    nonisolated static func isSynthesized(_ e: NSEvent) -> Bool {
+        e.cgEvent?.getIntegerValueField(.eventSourceUserData) == eventMarker
     }
 
     static var isTrusted: Bool { AXIsProcessTrusted() }
@@ -127,6 +148,7 @@ enum TextInserter {
     /// 続けて送ると取りこぼすアプリがあるので、イベントの間を interval ms 空ける
     private static func postKey(_ key: CGKeyCode, modifiers: [ModifierKey], interval: Int) async -> Bool {
         let src = CGEventSource(stateID: .privateState)
+        src?.userData = eventMarker
         var events: [CGEvent] = []
         var flags: CGEventFlags = []
         for m in modifiers {

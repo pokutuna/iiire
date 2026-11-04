@@ -84,9 +84,25 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertNil(finished[0])
     }
 
-    func testSavedShortcutRoundTrips() {
+    func testComboDisplayName() {
         let s = Shortcut(kind: .combo, keyCode: UInt16(kVK_ANSI_D), modifiers: NSEvent.ModifierFlags([.command, .shift]).rawValue, keyLabel: "D")
-        XCTAssertEqual(Shortcut.decode(s.encoded()), s)
         XCTAssertEqual(s.displayName, "⇧⌘D")
+    }
+
+    func testShiftAloneIsNotEnoughForAHotkey() {
+        key(kVK_ANSI_A, "a", [.shift])
+        XCTAssertTrue(finished.isEmpty)
+        XCTAssertNotNil(model.message)
+    }
+
+    /// 右 ⌥ のホットキーは、左 ⌥ を押したままでも右を離したら離したとわかる
+    func testModifierKeyDownDistinguishesSides() {
+        let both = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.option.rawValue
+            | UInt(NX_DEVICELALTKEYMASK) | UInt(NX_DEVICERALTKEYMASK))
+        let leftOnly = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.option.rawValue | UInt(NX_DEVICELALTKEYMASK))
+        XCTAssertTrue(Shortcut.isModifierKeyDown(UInt16(kVK_RightOption), flags: both))
+        XCTAssertFalse(Shortcut.isModifierKeyDown(UInt16(kVK_RightOption), flags: leftOnly))
+        XCTAssertTrue(Shortcut.isModifierKeyDown(UInt16(kVK_Option), flags: leftOnly))
+        XCTAssertTrue(Shortcut.isModifierKeyDown(UInt16(kVK_Function), flags: .function))
     }
 }

@@ -73,6 +73,30 @@ struct Shortcut: Codable, Hashable {
         }
     }
 
+    /// 修飾キーの keyCode が、このフラグの状態で押されているか。左右のキーを区別する
+    /// (反対側の同じ修飾キーが押されたままでも、離したことがわかるように)
+    static func isModifierKeyDown(_ keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+        let device: Int32
+        switch Int(keyCode) {
+        case kVK_Command: device = NX_DEVICELCMDKEYMASK
+        case kVK_RightCommand: device = NX_DEVICERCMDKEYMASK
+        case kVK_Option: device = NX_DEVICELALTKEYMASK
+        case kVK_RightOption: device = NX_DEVICERALTKEYMASK
+        case kVK_Control: device = NX_DEVICELCTLKEYMASK
+        case kVK_RightControl: device = NX_DEVICERCTLKEYMASK
+        case kVK_Shift: device = NX_DEVICELSHIFTKEYMASK
+        case kVK_RightShift: device = NX_DEVICERSHIFTKEYMASK
+        case kVK_Function: return flags.contains(.function)
+        default: return false
+        }
+        return flags.rawValue & UInt(device) != 0
+    }
+
+    /// 修飾キーなしでは使えないキー (F キーは単独で使える)
+    var lacksModifier: Bool {
+        modifierFlags.isEmpty && Self.functionKeyNumber(keyCode) == nil
+    }
+
     static func modifierSymbols(_ flags: NSEvent.ModifierFlags) -> String {
         var s = ""
         if flags.contains(.control) { s += "⌃" }
@@ -138,8 +162,8 @@ final class HotkeyMonitor {
         stop()
         switch shortcut.kind {
         case .modifierOnly:
-            guard let flag = Shortcut.modifierFlag(shortcut.keyCode) else { return false }
-            startModifier(keyCode: shortcut.keyCode, flag: flag)
+            guard Shortcut.modifierFlag(shortcut.keyCode) != nil else { return false }
+            startModifier(keyCode: shortcut.keyCode)
             return true
         case .combo:
             return startCarbon(keyCode: UInt32(shortcut.keyCode), modifiers: Self.carbonModifiers(shortcut.modifierFlags))
@@ -167,10 +191,10 @@ final class HotkeyMonitor {
 
     // MARK: modifier-only
 
-    private func startModifier(keyCode: UInt16, flag: NSEvent.ModifierFlags) {
+    private func startModifier(keyCode: UInt16) {
         let handleFlags: (NSEvent) -> Void = { [weak self] e in
-            guard let self, e.keyCode == keyCode else { return }
-            let down = e.modifierFlags.contains(flag)
+            guard let self, e.keyCode == keyCode, !TextInserter.isSynthesized(e) else { return }
+            let down = Shortcut.isModifierKeyDown(keyCode, flags: e.modifierFlags)
             if down, !isDown {
                 isDown = true
                 onPress?()
@@ -179,8 +203,8 @@ final class HotkeyMonitor {
                 onRelease?()
             }
         }
-        let handleKey: (NSEvent) -> Void = { [weak self] _ in
-            guard let self, isDown else { return }
+        let handleKey: (NSEvent) -> Void = { [weak self] e in
+            guard let self, isDown, !TextInserter.isSynthesized(e) else { return }
             onInterrupted?()
         }
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: handleFlags) { monitors.append(m) }

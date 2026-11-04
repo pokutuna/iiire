@@ -43,6 +43,7 @@ private struct OpenSettingsOnLaunch: ViewModifier {
             NSApp.activate(ignoringOtherApps: true)
             openSettings()
             guard let snapshotDir else { return }
+            try? FileManager.default.createDirectory(atPath: snapshotDir, withIntermediateDirectories: true)
             for tab in SettingsTab.allCases {
                 SettingsNavigation.shared.tab = tab
                 try? await Task.sleep(for: .seconds(1))
@@ -79,6 +80,8 @@ private struct MenuBarIcon: View {
 private struct MenuContent: View {
     @EnvironmentObject var state: AppState
     @Environment(\.openSettings) private var openSettings
+    /// 設定画面でホットキーを変えたら、メニューの表示も変える
+    @AppStorage(SettingsKey.shortcut) private var shortcutJSON = ""
 
     var body: some View {
         Text(statusText)
@@ -87,7 +90,7 @@ private struct MenuContent: View {
             state.toggleFromMenu()
         }
         .disabled(state.phase == .transcribing)
-        Text("Hotkey: \(Defaults.shortcut.displayName) (press to toggle, hold to talk)")
+        Text("Hotkey: \((Shortcut.decode(shortcutJSON) ?? Defaults.shortcut).displayName) (press to toggle, hold to talk)")
 
         if !state.history.isEmpty {
             Divider()
@@ -113,7 +116,7 @@ private struct MenuContent: View {
         if let e = state.lastError { return "⚠️ \(e)" }
         switch state.workerState {
         case .stopped: return String(localized: "Stopped")
-        case .loading(let s): return state.downloadText ?? String(localized: "Preparing: \(s)")
+        case .loading(let s): return state.downloadText ?? s
         case .ready: return String(localized: "Ready: \(Defaults.model.id)")
         case .failed(let m): return "⚠️ \(m)"
         }

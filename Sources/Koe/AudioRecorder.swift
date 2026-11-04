@@ -43,12 +43,6 @@ enum AudioDevices {
         return stringProperty(id, kAudioObjectPropertyName)
     }
 
-    /// 録音に使うデバイスの名前。指定したデバイスがなければ既定の入力を使う (AudioRecorder.start と同じ)
-    static func recordingDeviceName(uid: String) -> String? {
-        if !uid.isEmpty, let d = device(uid: uid) { return d.name }
-        return defaultInputName()
-    }
-
     private static func inputChannelCount(_ id: AudioDeviceID) -> Int {
         var addr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyStreamConfiguration,
@@ -85,6 +79,9 @@ final class AudioRecorder {
     private(set) var sampleRate: Int = 48000
     /// 録音に使っているデバイスの名前
     private(set) var deviceName: String?
+    /// 時限を過ぎてもまだ戻らない、前の開く処理。戻るまでは次を始めない (スレッドが溜まらないように)
+    private var stuckAttempt: StartAttempt?
+    private var configObserver: NSObjectProtocol?
 
     /// マイクを開くのを待つ時間。CoreAudio が応答しなくなると開く処理が戻らないことがあるので、
     /// 別のスレッドで開き、これを過ぎたらあきらめる (アプリ全体が止まらないように)
@@ -113,11 +110,21 @@ final class AudioRecorder {
 
     func start(deviceUID: String) throws {
         stop()
-        lock.withLock { samples = [] }
+        if let stuck = stuckAttempt {
+            guard stuck.lock.withLock({ stuck.finished }) else {
+                Log.info("microphone is still not responding")
+                throw TimeoutError()
+            }
+            stuckAttempt = nil
+        }
 
         let attempt = StartAttempt()
         let done = DispatchSemaphore(value: 0)
-        let tap: (AVAudioPCMBuffer) -> Void = { [weak self] buffer in self?.append(buffer) }
+        // あきらめた後に開けた分は、閉じるまでに届いても溜めない
+        let tap: (AVAudioPCMBuffer) -> Void = { [weak self] buffer in
+            guard !attempt.lock.withLock({ attempt.abandoned }) else { return }
+            self?.append(buffer)
+        }
         Thread.detachNewThread {
             let result = Result { try Self.openEngine(deviceUID: deviceUID, tap: tap) }
             attempt.lock.withLock {
@@ -142,6 +149,7 @@ final class AudioRecorder {
         try attempt.lock.withLock {
             if !inTime, !attempt.finished {
                 attempt.abandoned = true
+                stuckAttempt = attempt
                 Log.info("microphone did not open within \(Self.startTimeout)s")
                 throw TimeoutError()
             }
@@ -149,6 +157,11 @@ final class AudioRecorder {
             engine = attempt.engine
             sampleRate = attempt.sampleRate
             deviceName = attempt.deviceName
+        }
+        // 録音中にデバイスが変わると、エンジンが止まって音が届かなくなることがある
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { _ in
+            Log.info("audio engine configuration changed (device changed or disconnected)")
         }
     }
 
@@ -185,13 +198,14 @@ final class AudioRecorder {
     /// 録音を止め、溜めたサンプルを返す。止める処理が戻らなくても、溜めた分は返す
     @discardableResult
     func stop() -> [Float] {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        configObserver = nil
         if let engine {
             self.engine = nil
             let done = DispatchSemaphore(value: 0)
-            nonisolated(unsafe) let e = engine
             Thread.detachNewThread {
-                e.inputNode.removeTap(onBus: 0)
-                e.stop()
+                engine.inputNode.removeTap(onBus: 0)
+                engine.stop()
                 done.signal()
             }
             if done.wait(timeout: .now() + Self.stopTimeout) == .timedOut {

@@ -15,11 +15,14 @@ SPEECH_CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=Release -DGGML_OPENMP=OFF -DGGML_NATIVE
 app: speech
 	SPEECH="$(SPEECH)" scripts/build-app.sh
 
-# 毎回 cmake --build を呼ぶ。変更がなければすぐに終わる
+# 毎回 cmake --build を呼ぶ。変更がなければすぐに終わる。
+# submodule が固定した版と違えば知らせる (版を上げる作業中は、そのままビルドする)
 speech: $(SPEECH_BUILD)/CMakeCache.txt
-	cmake --build $(SPEECH_BUILD) --config Release --target speech-cli -j
+	@git submodule status $(SPEECH_SRC) | grep -q '^+' && echo "warning: $(SPEECH_SRC) は固定した版と違う (git submodule update --init --recursive で合わせる)" >&2 || true
+	cmake --build $(SPEECH_BUILD) --config Release --target speech-cli -j $(shell sysctl -n hw.ncpu)
 
-$(SPEECH_BUILD)/CMakeCache.txt: | check-tools $(SPEECH_SRC)/CMakeLists.txt
+# Makefile (ビルドの指定) を変えたら構成し直す
+$(SPEECH_BUILD)/CMakeCache.txt: Makefile | check-tools $(SPEECH_SRC)/CMakeLists.txt
 	cmake -S $(SPEECH_SRC) -B $(SPEECH_BUILD) $(SPEECH_CMAKE_FLAGS)
 
 $(SPEECH_SRC)/CMakeLists.txt:

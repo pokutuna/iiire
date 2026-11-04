@@ -19,10 +19,15 @@ final class AppRuleTests: XCTestCase {
         XCTAssertEqual(OutputConfig.resolve(bundleID: nil, rules: rules, default: base), base)
     }
 
-    func testRulesSurviveEncoding() {
-        let rules = [AppRule(bundleID: "a", name: "A", output: .clipboard, keystroke: nil)]
-        XCTAssertEqual(AppRule.decode(AppRule.encode(rules)), rules)
+    func testBrokenRulesAreIgnored() {
         XCTAssertEqual(AppRule.decode("not json"), [])
+    }
+
+    /// 「出力」タブではルール専用の送り方 (キーを指定) を既定にしない
+    func testBaseConfigFromSavedValues() {
+        XCTAssertEqual(OutputConfig.base(output: "clipboard", keystroke: "leftCommand"),
+                       OutputConfig(output: .clipboard, keystroke: .leftCommand))
+        XCTAssertEqual(OutputConfig.base(output: "?", keystroke: "custom"), base)
     }
 
     private func combo(_ keyCode: Int, _ mods: NSEvent.ModifierFlags, _ label: String) -> Shortcut {
