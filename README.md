@@ -2,8 +2,10 @@
 
 # iiire
 
-ホットキーを押して話すだけで、カーソル位置にテキストを入力する macOS メニューバーアプリです。
-書き起こしには [speech.cpp](https://github.com/nyosegawa/speech.cpp) を使用し、音声はすべて Mac 上で処理されます（外部への送信はありません）。
+/iːiɾe/ - 言い入れ
+
+ホットキーで話した内容を、カーソル位置にテキストとして入力するアプリです。
+書き起こしには [speech.cpp](https://github.com/nyosegawa/speech.cpp) を使います。音声は Mac の中だけで処理し、外部には送りません。
 
 ## インストール
 
@@ -11,11 +13,12 @@
 
 - macOS 14 以降（Apple silicon）
 - Command Line Tools（または Xcode）: `xcode-select --install`
-- CMake: `brew install cmake`
+- CMake（speech.cpp のビルドに使います）: `brew install cmake`
 
 ### 1. ビルドしてインストール
 
 配布バイナリはないため、ソースからビルドして `~/Applications/iiire.app` に配置します。
+アプリには、`make signing-identity` で各自の Mac に作る自己署名証明書で署名します。
 
 ```sh
 git clone --recurse-submodules https://github.com/pokutuna/iiire.git
@@ -25,14 +28,14 @@ make install            # ~/Applications/iiire.app にビルド・インスト�
 open ~/Applications/iiire.app
 ```
 
-### 2. 権限を許可する（初回のみ）
+### 2. マイクとアクセシビリティを許可する（初回のみ）
 
 起動するとメニューバーにアイコンが表示されます。アイコンから「**設定…**」を開き、「一般」タブの下部にある 2 つの権限を許可してください。
 
 - **マイク**: 音声の録音に必要です
 - **アクセシビリティ**: カーソル位置へのテキスト入力や、修飾キー単独のホットキー検知に必要です
 
-初回起動時には、音声認識モデル（約 0.66 GB）が Hugging Face から `~/Library/Caches/speech.cpp` へ自動でダウンロードされます。
+初回起動時に、音声認識モデル（約 0.66 GB）を Hugging Face からダウンロードします。保存先は speech.cpp のキャッシュディレクトリ `~/Library/Caches/speech.cpp` です。
 
 ### 更新するとき
 
@@ -52,11 +55,11 @@ open ~/Applications/iiire.app
 | **ホットキーを長押しする** | 押している間だけ録音し、離すと文字を入力 |
 | **Esc を押す** | 録音または書き起こしをキャンセル |
 
-録音中は画面下部に波形と経過時間が表示されます。
+録音中は画面下部にオーバーレイが表示され、波形、経過時間、使用中のマイクを確認できます。書き起こし中や入力の結果、エラーもここに表示されます。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/hud-recording-dark.png">
-  <img src="docs/hud-recording-light.png" width="266" alt="録音中の HUD 表示">
+  <img src="docs/hud-recording-light.png" width="266" alt="録音中のオーバーレイ">
 </picture>
 
 ## 設定
@@ -75,7 +78,7 @@ open ~/Applications/iiire.app
     - [Qwen3-ASR 0.6B](https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF) / [1.7B](https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF)（多言語 / ヒント・プロンプト指定に対応）
 - **出力方法・アプリ別ルール（出力・アプリ）**
   - 「カーソル位置に入力（元のクリップボードを復元）」「入力してクリップボードにも残す」「クリップボードにコピーのみ」から選択できます。
-  - ペースト時のキー送信方法を変更できるほか、ターミナルなど `⌘V` 以外でペーストするアプリごとに個別のルール（`⌃Y` を送るなど）を設定できます。
+  - ペースト時のキー送信方法を変更できるほか、独自のキーバインドを設定したエディタなど、`⌘V` 以外でペーストするアプリごとに個別のルール（`⌃Y` を送るなど）を設定できます。
 
 ## トラブルシューティング
 
@@ -91,6 +94,7 @@ open ~/Applications/iiire.app
 | `make app` | `build/iiire.app` をビルドする |
 | `make run` | アプリをビルドして起動する |
 | `make test` | テストを実行する（XCTest を使うため Xcode が必要） |
+| `make update-speech` | `speech.cpp` を新しいバージョンに更新する |
 | `make clean` | アプリと Swift のビルド結果を削除する |
 | `make distclean` | `speech.cpp` を含むすべてのビルド結果を削除する |
 
@@ -104,17 +108,15 @@ open ~/Applications/iiire.app
 APP=build/iiire.app/Contents/MacOS/iiire
 $APP --transcribe /tmp/sample.wav [MODEL]   # 音声ファイルを書き起こす
 $APP --snapshot-settings /tmp/shots         # 設定画面の各タブを PNG に書き出す
-$APP --snapshot-hud /tmp/shots              # HUD の各状態を PNG に書き出す
+$APP --snapshot-hud /tmp/shots              # オーバーレイの各状態を PNG に書き出す
 ```
 
 ### speech.cpp の更新
 
 `speech.cpp` は `vendor/speech.cpp` に Git submodule として配置し、ビルドした `speech` バイナリをアプリに同梱しています。
+次のコマンドで submodule を最新のタグ（`REF` を指定するとそのタグやコミット）に更新してステージします。続けてコミットしてください。
 
 ```sh
-cd vendor/speech.cpp
-git checkout <バージョン>
-git submodule update --init --recursive
-cd ../..
-git add vendor/speech.cpp
+make update-speech              # 最新のタグに更新する
+make update-speech REF=v0.10.1  # 指定したバージョンに更新する
 ```
