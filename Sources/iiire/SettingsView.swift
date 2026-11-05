@@ -288,7 +288,7 @@ private struct OutputSettings: View {
     @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
     @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
     @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = 10
-    @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 300
+    @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 1000
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
 
     private var base: OutputConfig {

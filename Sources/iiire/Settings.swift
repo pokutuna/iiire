@@ -181,7 +181,7 @@ enum Defaults {
             SettingsKey.cancelSound: "Bottle",
             SettingsKey.speechPath: "",
             SettingsKey.pasteKeyIntervalMs: 10,
-            SettingsKey.clipboardRestoreDelayMs: 300,
+            SettingsKey.clipboardRestoreDelayMs: 1000,
             SettingsKey.pasteKeystroke: PasteKeystroke.rightCommand.rawValue,
             SettingsKey.pasteCustomKey: "",
             SettingsKey.appRules: "[]",
