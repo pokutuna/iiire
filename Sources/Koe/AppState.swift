@@ -28,7 +28,7 @@ final class AppState: ObservableObject {
     /// ホットキーを押した時刻。この押下で録音を始めたときだけ入る
     private var pressedAt: Date?
     /// これより長く押していたら押している間だけ録音 (push-to-talk)、短ければトグル
-    private let holdThreshold: TimeInterval = 0.4
+    private let holdThreshold: TimeInterval = 0.5
     private var transcribeTask: Task<Void, Never>?
     /// 今の書き起こしの番号。取り消した後に届いた結果は捨てる
     private var transcribeID = 0
@@ -143,6 +143,7 @@ final class AppState: ObservableObject {
         switch phase {
         case .recording:
             recorder.stop()
+            SoundCue.playCancel()
             setPhase(.idle)
         case .transcribing:
             // 1 回目は worker に取り消しを頼む。まだ読み込み中で頼むものがないとき、
@@ -167,6 +168,7 @@ final class AppState: ObservableObject {
         transcribeTask?.cancel()
         transcribeTask = nil
         if worker.hasPendingRequests { restartWorker() } // start が前の worker を止める
+        SoundCue.playCancel()
         setPhase(.idle)
     }
 
@@ -246,7 +248,6 @@ final class AppState: ObservableObject {
     private func stopAndTranscribe() {
         guard phase == .recording else { return }
         var samples = recorder.stop()
-        SoundCue.playStop()
         let rate = recorder.sampleRate
         samples.removeFirst(min(samples.count, Int(leadingTrim * Double(rate))))
         let peak = samples.reduce(Float(0)) { max($0, abs($1)) }
@@ -259,6 +260,7 @@ final class AppState: ObservableObject {
         }
         // 0.3 秒未満は誤操作とみなす
         guard samples.count > rate * 3 / 10 else {
+            SoundCue.playCancel()
             setPhase(.idle)
             return
         }
@@ -294,6 +296,7 @@ final class AppState: ObservableObject {
                 // Esc の後に結果が届いたら入力しない (取り消しより先に書き起こしが終わっていた)
                 guard !cancelRequested else {
                     Log.info("transcription finished after cancel; result dropped")
+                    SoundCue.playCancel()
                     setPhase(.idle)
                     return
                 }
@@ -305,14 +308,17 @@ final class AppState: ObservableObject {
                     hud.expectResult()
                     setPhase(.idle)
                     await TextInserter.insert(text) { [weak self] result in
+                        if result == .notPasted { SoundCue.playCancel() } else { SoundCue.playDone() }
                         self?.hud.showResult(result, text: text)
                     }
                 } else {
+                    SoundCue.playCancel()
                     setPhase(.idle)
                 }
             } catch is CancellationError {
                 guard id == transcribeID else { return }
                 Log.info("transcription cancelled")
+                SoundCue.playCancel()
                 setPhase(.idle)
             } catch {
                 guard id == transcribeID else { return }
@@ -331,6 +337,7 @@ final class AppState: ObservableObject {
 
     private func fail(_ message: String) {
         Log.info(message)
+        SoundCue.playCancel()
         lastError = message
         setPhase(.idle)
         hud.flash(message)

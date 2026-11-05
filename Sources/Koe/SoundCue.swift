@@ -1,6 +1,6 @@
 import AppKit
 
-/// 録音の開始・終了を知らせる効果音。macOS のシステムサウンドを名前で鳴らす。
+/// 録音の開始と、書き起こしの結果を知らせる効果音。macOS のシステムサウンドを名前で鳴らす。
 @MainActor
 enum SoundCue {
     /// 開始音がマイクに入りうる時間。この間に録れた音は捨てる
@@ -13,9 +13,16 @@ enum SoundCue {
         play(Defaults.startSound)
     }
 
-    static func playStop() {
+    /// 書き起こした文字列を入力した (またはコピーした)
+    static func playDone() {
         guard Defaults.soundCue else { return }
-        play(Defaults.stopSound)
+        play(Defaults.doneSound)
+    }
+
+    /// 取り消したか、失敗して何も入力しなかった
+    static func playCancel() {
+        guard Defaults.soundCue else { return }
+        play(Defaults.cancelSound)
     }
 
     /// 設定画面での試聴

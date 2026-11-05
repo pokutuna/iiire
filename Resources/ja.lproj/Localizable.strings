@@ -37,7 +37,7 @@
 "Path (automatic if empty)" = "パス (空なら自動)";
 "Permissions" = "権限";
 "Koe needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
-"Play sounds when recording starts and stops" = "録音の開始・終了で音を鳴らす";
+"Play sound effects" = "効果音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
 "Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。";
 "Press keys…" = "キーを押す…";
@@ -58,7 +58,9 @@
 "Start Recording" = "録音を開始";
 "Start Sound" = "開始音";
 "Status" = "状態";
-"Stop Sound" = "終了音";
+"Done Sound" = "完了音";
+"Cancel Sound" = "キャンセル音";
+"The done sound plays when the text is inserted or copied. The cancel sound plays when you cancel or when nothing is inserted." = "完了音は文字列を入力またはコピーしたときに鳴ります。キャンセル音は、取り消したときと、何も入力しなかったときに鳴ります。";
 "Stop and Transcribe" = "録音を止めて書き起こす";
 "Stopped" = "停止中";
 "System Default" = "システムの既定";

@@ -48,8 +48,9 @@ private struct GeneralSettings: View {
     @State private var shortcutError: String?
     @AppStorage(SettingsKey.inputDeviceUID) private var inputDeviceUID = ""
     @AppStorage(SettingsKey.soundCue) private var soundCue = true
-    @AppStorage(SettingsKey.startSound) private var startSound = "Tink"
-    @AppStorage(SettingsKey.stopSound) private var stopSound = "Pop"
+    @AppStorage(SettingsKey.startSound) private var startSound = "Funk"
+    @AppStorage(SettingsKey.doneSound) private var doneSound = "Glass"
+    @AppStorage(SettingsKey.cancelSound) private var cancelSound = "Bottle"
 
     @State private var devices: [AudioInputDevice] = []
     @State private var soundNames: [String] = []
@@ -92,10 +93,16 @@ private struct GeneralSettings: View {
             }
 
             Section {
-                Toggle("Play sounds when recording starts and stops", isOn: $soundCue)
+                Toggle("Play sound effects", isOn: $soundCue)
                 if soundCue {
                     soundPicker("Start Sound", selection: $startSound)
-                    soundPicker("Stop Sound", selection: $stopSound)
+                    soundPicker("Done Sound", selection: $doneSound)
+                    soundPicker("Cancel Sound", selection: $cancelSound)
+                }
+            } footer: {
+                if soundCue {
+                    Text("The done sound plays when the text is inserted or copied. The cancel sound plays when you cancel or when nothing is inserted.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
 

@@ -157,7 +157,8 @@ enum SettingsKey {
     static let outputMethod = "outputMethod"
     static let soundCue = "soundCue"
     static let startSound = "startSound"
-    static let stopSound = "stopSound"
+    static let doneSound = "doneSound"
+    static let cancelSound = "cancelSound"
     static let speechPath = "speechPath"
     static let pasteKeyIntervalMs = "pasteKeyIntervalMs"
     static let clipboardRestoreDelayMs = "clipboardRestoreDelayMs"
@@ -176,8 +177,9 @@ enum Defaults {
             SettingsKey.inputDeviceUID: "",
             SettingsKey.outputMethod: OutputMethod.paste.rawValue,
             SettingsKey.soundCue: true,
-            SettingsKey.startSound: "Tink",
-            SettingsKey.stopSound: "Pop",
+            SettingsKey.startSound: "Funk",
+            SettingsKey.doneSound: "Glass",
+            SettingsKey.cancelSound: "Bottle",
             SettingsKey.speechPath: "",
             SettingsKey.pasteKeyIntervalMs: 10,
             SettingsKey.clipboardRestoreDelayMs: 300,
@@ -218,7 +220,8 @@ enum Defaults {
     static var inputDeviceUID: String { string(SettingsKey.inputDeviceUID) }
     static var soundCue: Bool { UserDefaults.standard.bool(forKey: SettingsKey.soundCue) }
     static var startSound: String { string(SettingsKey.startSound) }
-    static var stopSound: String { string(SettingsKey.stopSound) }
+    static var doneSound: String { string(SettingsKey.doneSound) }
+    static var cancelSound: String { string(SettingsKey.cancelSound) }
     /// 「出力」タブの設定
     static var baseOutputConfig: OutputConfig {
         .base(output: string(SettingsKey.outputMethod), keystroke: string(SettingsKey.pasteKeystroke),
