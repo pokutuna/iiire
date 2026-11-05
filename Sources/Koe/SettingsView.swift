@@ -88,7 +88,7 @@ private struct GeneralSettings: View {
                     }
                 }
             } footer: {
-                Text("Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels.")
+                Text("Press to start or stop. Hold to record while held. Esc cancels.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -98,11 +98,6 @@ private struct GeneralSettings: View {
                     soundPicker("Start Sound", selection: $startSound)
                     soundPicker("Done Sound", selection: $doneSound)
                     soundPicker("Cancel Sound", selection: $cancelSound)
-                }
-            } footer: {
-                if soundCue {
-                    Text("The done sound plays when the text is inserted or copied. The cancel sound plays when you cancel or when nothing is inserted.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
 

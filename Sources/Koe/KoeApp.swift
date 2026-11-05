@@ -86,11 +86,11 @@ private struct MenuContent: View {
     var body: some View {
         Text(statusText)
 
-        Button(state.phase == .recording ? String(localized: "Stop and Transcribe") : String(localized: "Start Recording")) {
+        Button(state.phase == .recording ? String(localized: "Stop Recording") : String(localized: "Start Recording")) {
             state.toggleFromMenu()
         }
         .disabled(state.phase == .transcribing)
-        Text("Hotkey: \((Shortcut.decode(shortcutJSON) ?? Defaults.shortcut).displayName) (press to toggle, hold to talk)")
+        Text("Hotkey: \((Shortcut.decode(shortcutJSON) ?? Defaults.shortcut).displayName)")
 
         if !state.history.isEmpty {
             Divider()

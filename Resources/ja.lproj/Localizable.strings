@@ -15,7 +15,7 @@
 "Hint (names and terms)" = "ヒント (固有名詞や用語)";
 "History (click to copy)" = "履歴 (クリックでコピー)";
 "Hotkey" = "ホットキー";
-"Hotkey: %@ (press to toggle, hold to talk)" = "ホットキー: %@ (短く押すと開始・停止、長押しで押している間だけ録音)";
+"Hotkey: %@" = "ホットキー: %@";
 "Japanese" = "日本語";
 "Kana" = "かな";
 "Language" = "言語";
@@ -35,7 +35,7 @@
 "Koe needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
 "Play sound effects" = "効果音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
-"Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消せます。";
+"Press to start or stop. Hold to record while held. Esc cancels." = "短く押すと開始・停止、長押しすると押している間だけ録音します。Esc で取り消せます。";
 "Press keys…" = "キーを押す…";
 "Press the keys to use (Esc to cancel)" = "登録するキーを押してください (Esc で取り消し)";
 "Preview" = "試聴";
@@ -52,12 +52,11 @@
 "Right ⌥" = "右 ⌥";
 "Settings…" = "設定…";
 "Start Recording" = "録音を開始";
-"Start Sound" = "開始音";
+"Start Sound" = "開始";
 "Status" = "状態";
-"Done Sound" = "完了音";
-"Cancel Sound" = "キャンセル音";
-"The done sound plays when the text is inserted or copied. The cancel sound plays when you cancel or when nothing is inserted." = "完了音は文字列を入力またはコピーしたときに鳴ります。キャンセル音は、取り消したときと、何も入力しなかったときに鳴ります。";
-"Stop and Transcribe" = "録音を止めて書き起こす";
+"Done Sound" = "完了";
+"Cancel Sound" = "キャンセル";
+"Stop Recording" = "録音を停止";
 "Stopped" = "停止中";
 "System Default" = "システムの既定";
 "The speech command was not found. Set its path in Settings." = "speech コマンドが見つかりません。設定でパスを指定してください";
