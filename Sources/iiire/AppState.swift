@@ -335,7 +335,11 @@ final class AppState: ObservableObject {
                     return
                 }
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                #if DEBUG
                 Log.info("transcribed: \(text.debugDescription)")
+                #else
+                Log.info("transcribed: \(text.count) chars")
+                #endif
                 if !text.isEmpty {
                     history.insert(text, at: 0)
                     if history.count > 10 { history.removeLast() }
