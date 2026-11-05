@@ -362,7 +362,7 @@ final class AppState: ObservableObject {
             } catch {
                 guard id == transcribeID else { return }
                 Log.info("transcription failed: \(error.localizedDescription)")
-                fail(String(localized: "Transcription failed."))
+                fail(error.localizedDescription)
             }
         }
     }
@@ -389,7 +389,8 @@ final class AppState: ObservableObject {
         let active = phase != .idle
         if active, escMonitors.isEmpty {
             let handler: (NSEvent) -> Void = { [weak self] e in
-                if e.keyCode == 53 { Task { @MainActor in self?.cancel() } }
+                // 押し続けたときのリピートを 2 回目の Esc と取り違えない (2 回目は worker を止めてしまう)
+                if e.keyCode == 53, !e.isARepeat { Task { @MainActor in self?.cancel() } }
             }
             if let m = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: handler) { escMonitors.append(m) }
             if let m = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { handler($0); return $0 }) { escMonitors.append(m) }

@@ -97,7 +97,10 @@ final class SpeechWorker {
     func stop() {
         guard let p = process else { return }
         process = nil
-        try? stdin?.close()
+        // 書き込み中のものを書き終えてから閉じる。並行して閉じると、その fd 番号が次の worker のパイプに
+        // 使い回され、残りの書き込みがそちらに混ざることがある
+        let handle = stdin
+        writeQueue.async { try? handle?.close() }
         stdin = nil
         outputs.forEach { $0.readabilityHandler = nil }
         outputs = []
@@ -231,7 +234,12 @@ final class SpeechWorker {
             guard !line.isEmpty else { continue }
             guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
                   let type = obj["type"] as? String else {
+                // 書き起こした文字列を含むことがあるので、リリースビルドでは長さだけ出す
+                #if DEBUG
                 Log.info("unexpected worker output: \(String(decoding: line.prefix(200), as: UTF8.self))")
+                #else
+                Log.info("unexpected worker output: \(line.count) bytes")
+                #endif
                 continue
             }
             handle(type: type, obj: obj)

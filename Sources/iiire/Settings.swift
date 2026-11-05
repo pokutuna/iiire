@@ -167,24 +167,39 @@ enum SettingsKey {
 }
 
 enum Defaults {
+    /// 既定値。設定画面の @AppStorage の初期値もこれを使う (register した値が優先されるが、食い違わないように)
+    enum Initial {
+        static let model = "haas-ja-v1.0"
+        static let language = "auto"
+        static let outputMethod = OutputMethod.paste.rawValue
+        static let soundCue = true
+        static let startSound = "Funk"
+        static let doneSound = "Glass"
+        static let cancelSound = "Bottle"
+        static let pasteKeyIntervalMs = 10
+        static let clipboardRestoreDelayMs = 1000
+        static let pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+        static let appRules = "[]"
+    }
+
     static func register() {
         UserDefaults.standard.register(defaults: [
-            SettingsKey.model: "haas-ja-v1.0",
-            SettingsKey.language: "auto",
+            SettingsKey.model: Initial.model,
+            SettingsKey.language: Initial.language,
             SettingsKey.hint: "",
             SettingsKey.shortcut: "",
             SettingsKey.inputDeviceUID: "",
-            SettingsKey.outputMethod: OutputMethod.paste.rawValue,
-            SettingsKey.soundCue: true,
-            SettingsKey.startSound: "Funk",
-            SettingsKey.doneSound: "Glass",
-            SettingsKey.cancelSound: "Bottle",
+            SettingsKey.outputMethod: Initial.outputMethod,
+            SettingsKey.soundCue: Initial.soundCue,
+            SettingsKey.startSound: Initial.startSound,
+            SettingsKey.doneSound: Initial.doneSound,
+            SettingsKey.cancelSound: Initial.cancelSound,
             SettingsKey.speechPath: "",
-            SettingsKey.pasteKeyIntervalMs: 10,
-            SettingsKey.clipboardRestoreDelayMs: 1000,
-            SettingsKey.pasteKeystroke: PasteKeystroke.rightCommand.rawValue,
+            SettingsKey.pasteKeyIntervalMs: Initial.pasteKeyIntervalMs,
+            SettingsKey.clipboardRestoreDelayMs: Initial.clipboardRestoreDelayMs,
+            SettingsKey.pasteKeystroke: Initial.pasteKeystroke,
             SettingsKey.pasteCustomKey: "",
-            SettingsKey.appRules: "[]",
+            SettingsKey.appRules: Initial.appRules,
         ])
     }
 

@@ -107,7 +107,9 @@ final class AudioRecorder {
     /// 1 回の録音のサンプル。閉じた後は受け付けない
     private final class Session: @unchecked Sendable {
         private let lock = NSLock()
-        private var samples: [Float] = []
+        /// 録音スレッドで受け取った分をそのまま並べる。1 本の配列に足していくと、長い録音で
+        /// 配列の作り直し (数十 MB のコピー) が録音スレッドで起き、音が途切れる
+        private var chunks: [[Float]] = []
         private var closed = false
         private var isLost = false
         /// 溜めるサンプルのレート。録音の途中でマイクのレートが変わったら、このレートに直して溜める
@@ -121,7 +123,7 @@ final class AudioRecorder {
             let mono = rate == self.rate ? mono : Self.resample(mono, from: rate, to: self.rate)
             return lock.withLock {
                 guard !closed else { return false }
-                samples.append(contentsOf: mono)
+                chunks.append(mono)
                 return true
             }
         }
@@ -135,8 +137,8 @@ final class AudioRecorder {
         func close() -> [Float] {
             lock.withLock {
                 closed = true
-                defer { samples = [] }
-                return samples
+                defer { chunks = [] }
+                return Array(chunks.joined())
             }
         }
 
@@ -166,6 +168,10 @@ final class AudioRecorder {
         private var buffer: UnsafeMutablePointer<Float>?
         private var capacity = 0
         private var closed = false
+        /// 入力レベルを知らせる間隔ごとに溜める二乗和とフレーム数。
+        /// 録音スレッドが呼ばれるたび (1 秒に 100 回ほど) に知らせると、HUD の描き直しが多すぎる
+        private var levelSum: Float = 0
+        private var levelFrames = 0
 
         init(unit: AudioUnit, session: Session, onLevel: @escaping (Float) -> Void, onLost: @escaping () -> Void) {
             self.unit = unit
@@ -241,8 +247,14 @@ final class AudioRecorder {
                 sum += v * v
             }
             guard session.append(mono, rate: rate) else { return noErr }
+            // 1/30 秒ごとに知らせる
+            levelSum += sum
+            levelFrames += n
+            guard Double(levelFrames) >= rate / 30 else { return noErr }
             // 人の声の RMS はおおよそ 0.01-0.2 なので対数で 0...1 に寄せる
-            let rms = sqrt(sum / Float(max(n, 1)))
+            let rms = sqrt(levelSum / Float(levelFrames))
+            levelSum = 0
+            levelFrames = 0
             onLevel(max(0, min(1, (20 * log10(max(rms, 1e-5)) + 50) / 40)))
             return noErr
         }

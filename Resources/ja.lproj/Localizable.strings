@@ -121,7 +121,6 @@
 "Couldn't get input from the microphone." = "マイクから入力を受け取れませんでした";
 "Recording stopped partway." = "録音が途中で止まりました";
 "Allow microphone access in System Settings." = "システム設定でマイクを許可してください";
-"Transcription failed." = "書き起こせませんでした";
 "Could not paste. Paste from the clipboard." = "ペーストできませんでした。クリップボードから貼り付けてください";
 "Copied to clipboard" = "クリップボードにコピーしました";
 "Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc を押すとすぐに止めます";

@@ -47,10 +47,10 @@ private struct GeneralSettings: View {
     @AppStorage(SettingsKey.shortcut) private var shortcutJSON = ""
     @State private var shortcutError: String?
     @AppStorage(SettingsKey.inputDeviceUID) private var inputDeviceUID = ""
-    @AppStorage(SettingsKey.soundCue) private var soundCue = true
-    @AppStorage(SettingsKey.startSound) private var startSound = "Funk"
-    @AppStorage(SettingsKey.doneSound) private var doneSound = "Glass"
-    @AppStorage(SettingsKey.cancelSound) private var cancelSound = "Bottle"
+    @AppStorage(SettingsKey.soundCue) private var soundCue = Defaults.Initial.soundCue
+    @AppStorage(SettingsKey.startSound) private var startSound = Defaults.Initial.startSound
+    @AppStorage(SettingsKey.doneSound) private var doneSound = Defaults.Initial.doneSound
+    @AppStorage(SettingsKey.cancelSound) private var cancelSound = Defaults.Initial.cancelSound
 
     @State private var devices: [AudioInputDevice] = []
     @State private var soundNames: [String] = []
@@ -208,8 +208,8 @@ private struct PermissionRow: View {
 private struct RecognitionSettings: View {
     @EnvironmentObject var state: AppState
 
-    @AppStorage(SettingsKey.model) private var model = "haas-ja-v1.0"
-    @AppStorage(SettingsKey.language) private var language = "auto"
+    @AppStorage(SettingsKey.model) private var model = Defaults.Initial.model
+    @AppStorage(SettingsKey.language) private var language = Defaults.Initial.language
     @AppStorage(SettingsKey.hint) private var hint = ""
 
     var body: some View {
@@ -284,12 +284,12 @@ private struct RecognitionSettings: View {
 
 private struct OutputSettings: View {
     @EnvironmentObject var state: AppState
-    @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
-    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+    @AppStorage(SettingsKey.outputMethod) private var outputMethod = Defaults.Initial.outputMethod
+    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = Defaults.Initial.pasteKeystroke
     @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
-    @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = 10
-    @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = 1000
-    @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
+    @AppStorage(SettingsKey.pasteKeyIntervalMs) private var pasteKeyIntervalMs = Defaults.Initial.pasteKeyIntervalMs
+    @AppStorage(SettingsKey.clipboardRestoreDelayMs) private var clipboardRestoreDelayMs = Defaults.Initial.clipboardRestoreDelayMs
+    @AppStorage(SettingsKey.appRules) private var appRulesJSON = Defaults.Initial.appRules
 
     private var base: OutputConfig {
         .base(output: outputMethod, keystroke: pasteKeystroke, customKey: pasteCustomKey)
@@ -376,10 +376,10 @@ private struct OutputSettings: View {
 
 private struct AppRulesSettings: View {
     @EnvironmentObject var state: AppState
-    @AppStorage(SettingsKey.outputMethod) private var outputMethod = OutputMethod.paste.rawValue
-    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = PasteKeystroke.rightCommand.rawValue
+    @AppStorage(SettingsKey.outputMethod) private var outputMethod = Defaults.Initial.outputMethod
+    @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = Defaults.Initial.pasteKeystroke
     @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
-    @AppStorage(SettingsKey.appRules) private var appRulesJSON = "[]"
+    @AppStorage(SettingsKey.appRules) private var appRulesJSON = Defaults.Initial.appRules
     @State private var runningApps: [RunningApp] = []
 
     /// 「アプリを追加」に並べる起動中のアプリ。アイコンは一覧を作るときに読む
