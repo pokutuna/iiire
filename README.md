@@ -69,10 +69,10 @@ open ~/Applications/iiire.app
   - 右 ⌥・右 ⌘・Fn などの修飾キー単独、または `⌥Space` などのキーの組み合わせをホットキーに登録できます。
 - **認識モデル・語彙登録（認識）**
   - 日本語の入力には、高速で語彙登録にも対応している **Haas ja v1.0**（既定）がおすすめです。他のモデルも選択時に自動でダウンロードされます。
-    - `Haas ja v1.0`（**おすすめ・既定** / 日本語・高速 / 固有名詞の「表記=読み」登録に対応）
-    - `ReazonSpeech v2`（日本語）
-    - `Parakeet TDT-CTC ja`（日本語・短い発話向け）
-    - `Qwen3-ASR 0.6B` / `1.7B`（多言語 / ヒント・プロンプト指定に対応）
+    - [Haas ja v1.0](https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF)（**おすすめ・既定** / 日本語・高速 / 固有名詞の「表記=読み」登録に対応）
+    - [ReazonSpeech v2](https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF)（日本語）
+    - [Parakeet TDT-CTC ja](https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF)（日本語・短い発話向け）
+    - [Qwen3-ASR 0.6B](https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF) / [1.7B](https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF)（多言語 / ヒント・プロンプト指定に対応）
 - **出力方法・アプリ別ルール（出力・アプリ）**
   - 「カーソル位置に入力（元のクリップボードを復元）」「入力してクリップボードにも残す」「クリップボードにコピーのみ」から選択できます。
   - ペースト時のキー送信方法を変更できるほか、ターミナルなど `⌘V` 以外でペーストするアプリごとに個別のルール（`⌃Y` を送るなど）を設定できます。
