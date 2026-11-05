@@ -95,18 +95,21 @@ final class AudioRecorder {
 
     /// 0...1 の入力レベル。録音スレッドから呼ばれる
     var onLevel: ((Float) -> Void)?
+    /// 録音中にマイクの形式が変わり、合わせ直せなかった。別のスレッドから呼ばれる
+    var onDeviceLost: (() -> Void)?
 
-    struct TimeoutError: LocalizedError {
-        var errorDescription: String? {
-            String(localized: "The microphone did not respond. Reconnect it or choose another microphone in Settings.")
-        }
-    }
+    /// 今の録音が、途中でマイクから録れなくなった
+    var deviceLost: Bool { session?.lost ?? false }
+
+    /// マイクが時限内に開かなかった
+    struct TimeoutError: Error {}
 
     /// 1 回の録音のサンプル。閉じた後は受け付けない
     private final class Session: @unchecked Sendable {
         private let lock = NSLock()
         private var samples: [Float] = []
         private var closed = false
+        private var isLost = false
         /// 溜めるサンプルのレート。録音の途中でマイクのレートが変わったら、このレートに直して溜める
         let rate: Double
 
@@ -121,6 +124,12 @@ final class AudioRecorder {
                 samples.append(contentsOf: mono)
                 return true
             }
+        }
+
+        var lost: Bool { lock.withLock { isLost } }
+
+        func markLost() {
+            lock.withLock { isLost = true }
         }
 
         func close() -> [Float] {
@@ -149,6 +158,7 @@ final class AudioRecorder {
         let unit: AudioUnit
         let session: Session
         let onLevel: (Float) -> Void
+        let onLost: () -> Void
         let queue = DispatchQueue(label: "koe.recorder")
         /// AUHAL から受け取る形式 (デバイスに合わせる。AUHAL は入力のレートを変換しない)
         private(set) var rate: Double = 0
@@ -157,10 +167,11 @@ final class AudioRecorder {
         private var capacity = 0
         private var closed = false
 
-        init(unit: AudioUnit, session: Session, onLevel: @escaping (Float) -> Void) {
+        init(unit: AudioUnit, session: Session, onLevel: @escaping (Float) -> Void, onLost: @escaping () -> Void) {
             self.unit = unit
             self.session = session
             self.onLevel = onLevel
+            self.onLost = onLost
         }
 
         deinit { buffer?.deallocate() }
@@ -197,6 +208,8 @@ final class AudioRecorder {
                 try check(AudioOutputUnitStart(unit), "start")
             } catch {
                 Log.info("could not follow the microphone format change: \(error)")
+                session.markLost()
+                onLost()
             }
         }
 
@@ -267,8 +280,9 @@ final class AudioRecorder {
         let attempt = StartAttempt()
         let done = DispatchSemaphore(value: 0)
         let onLevel: (Float) -> Void = { [weak self] in self?.onLevel?($0) }
+        let onLost: () -> Void = { [weak self] in self?.onDeviceLost?() }
         Thread.detachNewThread {
-            let result = Result { try Self.open(deviceUID: deviceUID, onLevel: onLevel) }
+            let result = Result { try Self.open(deviceUID: deviceUID, onLevel: onLevel, onLost: onLost) }
             let abandoned = attempt.lock.withLock {
                 attempt.finished = true
                 switch result {
@@ -307,7 +321,8 @@ final class AudioRecorder {
     }
 
     /// AUHAL を開き、デバイスを選んで録音を始める。別スレッドで呼ぶ
-    private static func open(deviceUID: String, onLevel: @escaping (Float) -> Void) throws -> (capture: Capture, deviceName: String?) {
+    private static func open(deviceUID: String, onLevel: @escaping (Float) -> Void,
+                             onLost: @escaping () -> Void) throws -> (capture: Capture, deviceName: String?) {
         var desc = AudioComponentDescription(
             componentType: kAudioUnitType_Output, componentSubType: kAudioUnitSubType_HALOutput,
             componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0)
@@ -337,7 +352,8 @@ final class AudioRecorder {
             }
 
             // 録音を始めたときのデバイスのレートで溜める
-            let capture = Capture(unit: unit, session: Session(rate: try deviceFormat(unit).mSampleRate), onLevel: onLevel)
+            let capture = Capture(unit: unit, session: Session(rate: try deviceFormat(unit).mSampleRate),
+                                  onLevel: onLevel, onLost: onLost)
             try capture.matchDeviceFormat()
             let context = Unmanaged.passUnretained(capture).toOpaque()
             var callback = AURenderCallbackStruct(inputProc: Capture.inputProc, inputProcRefCon: context)
@@ -390,5 +406,5 @@ private func check(_ status: OSStatus, _ what: String) throws {
 }
 
 private func openError(_ status: OSStatus) -> Error {
-    NSError(domain: "Koe", code: Int(status), userInfo: [NSLocalizedDescriptionKey: String(localized: "Cannot open the input device.")])
+    NSError(domain: "Koe", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Cannot open the input device."])
 }

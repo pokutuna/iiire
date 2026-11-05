@@ -27,7 +27,9 @@ final class SpeechWorker {
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
     private var pending: [String: CheckedContinuation<String, Error>] = [:]
-    private var readyWaiters: [CheckedContinuation<Void, Error>] = []
+    /// 準備ができるのを待っている書き起こし。取り消されたら番号で外す
+    private var readyWaiters: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var nextWaiter = 0
     private var nextID = 0
 
     /// 実行する `speech` コマンドのパスを決める。
@@ -163,7 +165,23 @@ final class SpeechWorker {
         case .stopped, .failed:
             throw WorkerError(message: stateMessage)
         }
-        try await withCheckedThrowingContinuation { readyWaiters.append($0) }
+        nextWaiter += 1
+        let key = nextWaiter
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled {
+                    cont.resume(throwing: CancellationError())
+                } else {
+                    readyWaiters[key] = cont
+                }
+            }
+        } onCancel: { [weak self] in
+            Task { @MainActor in self?.cancelWaiter(key) }
+        }
+    }
+
+    private func cancelWaiter(_ key: Int) {
+        readyWaiters.removeValue(forKey: key)?.resume(throwing: CancellationError())
     }
 
     private var stateMessage: String {
@@ -231,8 +249,8 @@ final class SpeechWorker {
         switch type {
         case "ready":
             state = .ready
-            let waiters = readyWaiters
-            readyWaiters = []
+            let waiters = readyWaiters.values
+            readyWaiters = [:]
             waiters.forEach { $0.resume() }
         case "fatal":
             let msg = Self.errorMessage(obj)
@@ -294,8 +312,8 @@ final class SpeechWorker {
         let conts = pending.values
         pending = [:]
         conts.forEach { $0.resume(throwing: error) }
-        let waiters = readyWaiters
-        readyWaiters = []
+        let waiters = readyWaiters.values
+        readyWaiters = [:]
         waiters.forEach { $0.resume(throwing: error) }
     }
 }

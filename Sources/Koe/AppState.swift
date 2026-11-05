@@ -14,6 +14,8 @@ final class AppState: ObservableObject {
     @Published private(set) var lastError: String?
     /// モデル名 → ファイルを取得済みか、どこまで取得したか
     @Published private(set) var modelFiles: [String: ModelFile] = [:]
+    /// 最後に始めたモデル一覧の取得。取得は順に行い、後に始めたものの結果で上書きする
+    private var modelsLoad: Task<Void, Never>?
     private var watchingDownload = false
     /// 録音を始めた時刻と、使っている入力デバイスの名前 (HUD に出す)
     private(set) var recordingStartedAt: Date?
@@ -25,8 +27,8 @@ final class AppState: ObservableObject {
     private lazy var hud = HUDController(state: self)
     private var escMonitors: [Any] = []
 
-    /// ホットキーを押した時刻。この押下で録音を始めたときだけ入る
-    private var pressedAt: Date?
+    /// ホットキーを押した時刻 (起動からの秒数)。この押下で録音を始めたときだけ入る
+    private var pressedAt: TimeInterval?
     /// これより長く押していたら押している間だけ録音 (push-to-talk)、短ければトグル
     private let holdThreshold: TimeInterval = 0.5
     private var transcribeTask: Task<Void, Never>?
@@ -36,6 +38,8 @@ final class AppState: ObservableObject {
     @Published private(set) var cancelRequested = false
     /// 録音の先頭で捨てる秒数 (開始音がマイクに入った分)
     private var leadingTrim: TimeInterval = 0
+    /// 書き起こし中にモデルが変わった。書き起こしが終わってから worker を起動し直す
+    private var restartAfterTranscription = false
 
     init() {
         worker.onStateChange = { [weak self] s in
@@ -47,8 +51,11 @@ final class AppState: ObservableObject {
         recorder.onLevel = { [weak self] l in
             Task { @MainActor in self?.hud.push(level: l) }
         }
-        hotkeys.onPress = { [weak self] in self?.hotkeyPressed() }
-        hotkeys.onRelease = { [weak self] in self?.hotkeyReleased() }
+        recorder.onDeviceLost = { [weak self] in
+            Task { @MainActor in self?.deviceLost() }
+        }
+        hotkeys.onPress = { [weak self] in self?.hotkeyPressed(at: $0) }
+        hotkeys.onRelease = { [weak self] in self?.hotkeyReleased(at: $0) }
         hotkeys.onInterrupted = { [weak self] in self?.hotkeyInterrupted() }
     }
 
@@ -57,7 +64,8 @@ final class AppState: ObservableObject {
         if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
             AVCaptureDevice.requestAccess(for: .audio) { _ in }
         }
-        if !TextInserter.isTrusted && Defaults.outputMethod != .clipboard {
+        // ペーストしない設定でも、修飾キー単独のホットキーと、他のアプリにいるときの Esc に要る
+        if !TextInserter.isTrusted {
             TextInserter.requestAccessibility()
         }
         applyHotkey()
@@ -96,27 +104,44 @@ final class AppState: ObservableObject {
     }
 
     func restartWorker() {
+        restartAfterTranscription = false
         worker.start(model: Defaults.model.id)
+    }
+
+    /// 設定でモデルを変えた。書き起こし中なら、それを中断しないよう終わってから切り替える
+    func modelChanged() {
+        if phase == .transcribing {
+            restartAfterTranscription = true
+        } else {
+            restartWorker()
+        }
     }
 
     // MARK: - モデルの取得
 
-    func refreshModels() {
-        Task { modelFiles = await ModelCatalog.load() }
+    @discardableResult
+    func refreshModels() -> Task<Void, Never> {
+        let previous = modelsLoad
+        let task = Task {
+            await previous?.value
+            modelFiles = await ModelCatalog.load()
+        }
+        modelsLoad = task
+        return task
     }
 
-    /// worker が準備中の間は、取得の進み具合を出すため 1 秒ごとに調べ直す
+    /// worker が準備中の間は、取得の進み具合を出すため 1 秒ごとに調べ直す。
+    /// 準備が終わったときの取得は、worker の状態の変化を受けて行う
     private func watchModelDownload() {
         guard !watchingDownload else { return }
         watchingDownload = true
         Task {
             defer { watchingDownload = false }
             while case .loading = workerState {
-                modelFiles = await ModelCatalog.load()
+                await refreshModels().value
                 if phase == .transcribing { hud.update() }
                 try? await Task.sleep(for: .seconds(1))
             }
-            modelFiles = await ModelCatalog.load()
         }
     }
 
@@ -178,14 +203,14 @@ final class AppState: ObservableObject {
 
     // MARK: - ホットキー
 
-    private func hotkeyPressed() {
+    private func hotkeyPressed(at time: TimeInterval) {
         Log.info("hotkey pressed (phase=\(phase))")
         switch phase {
         case .idle:
-            // マイクを開くのに時間がかかっても、押した時刻から長押しを測る
-            let now = Date()
+            // 長押しはキーイベントの時刻で測る。マイクを開く間に溜まったイベントを後から処理しても、
+            // 押していた時間を長く見積もらない
             startRecording()
-            if phase == .recording { pressedAt = now }
+            if phase == .recording { pressedAt = time }
         case .recording:
             // トグルモードで録音中。もう一度押したら止める
             pressedAt = nil
@@ -195,11 +220,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func hotkeyReleased() {
+    private func hotkeyReleased(at time: TimeInterval) {
         Log.info("hotkey released (phase=\(phase))")
         guard phase == .recording, let pressedAt else { return }
         self.pressedAt = nil
-        if Date().timeIntervalSince(pressedAt) >= holdThreshold {
+        if time - pressedAt >= holdThreshold {
             stopAndTranscribe()
         }
     }
@@ -223,7 +248,7 @@ final class AppState: ObservableObject {
 
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .denied, .restricted:
-            fail(String(localized: "Microphone access is not allowed (System Settings > Privacy & Security > Microphone)."))
+            fail(String(localized: "Allow microphone access in System Settings."))
             return
         default: break
         }
@@ -234,7 +259,8 @@ final class AppState: ObservableObject {
         do {
             try recorder.start(deviceUID: Defaults.inputDeviceUID)
         } catch {
-            fail(String(localized: "Cannot start recording: \(error.localizedDescription)"))
+            Log.info("cannot start recording: \(error)")
+            fail(String(localized: "Couldn't get input from the microphone."))
             return
         }
         // マイクが開くまでに開始音が鳴り終わっていなければ、その分を後で捨てる
@@ -245,8 +271,16 @@ final class AppState: ObservableObject {
         setPhase(.recording)
     }
 
+    /// 録音中にマイクが止まり、録り続けられなくなった
+    private func deviceLost() {
+        guard phase == .recording, recorder.deviceLost else { return }
+        recorder.stop()
+        fail(String(localized: "Recording stopped partway."))
+    }
+
     private func stopAndTranscribe() {
         guard phase == .recording else { return }
+        if recorder.deviceLost { return deviceLost() }
         var samples = recorder.stop()
         let rate = recorder.sampleRate
         samples.removeFirst(min(samples.count, Int(leadingTrim * Double(rate))))
@@ -255,7 +289,7 @@ final class AppState: ObservableObject {
         Log.info("recording stopped: \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / Double(rate)))s of \(String(format: "%.2f", elapsed))s) peak=\(peak)")
         // マイクから音が届いていない。押していた時間で判断する (サンプル数では誤操作と区別できない)
         if elapsed > 1, samples.count < rate * 3 / 10 {
-            fail(String(localized: "No audio arrived from the microphone. Reconnect it or choose another microphone in Settings."))
+            fail(String(localized: "Couldn't get input from the microphone."))
             return
         }
         // 0.3 秒未満は誤操作とみなす
@@ -266,7 +300,7 @@ final class AppState: ObservableObject {
         }
         // 無音を渡すとモデルがそれらしい文を作ってしまう
         guard peak > 0.005 else {
-            fail(String(localized: "No sound from the microphone. Check the microphone in Settings."))
+            fail(String(localized: "No speech detected."))
             return
         }
         // 入力が小さいマイク向けに、ピークが 0.5 になるまで持ち上げる (最大 10 倍)
@@ -322,13 +356,15 @@ final class AppState: ObservableObject {
                 setPhase(.idle)
             } catch {
                 guard id == transcribeID else { return }
-                fail(String(localized: "Transcription failed: \(error.localizedDescription)"))
+                Log.info("transcription failed: \(error.localizedDescription)")
+                fail(String(localized: "Transcription failed."))
             }
         }
     }
 
     private func setPhase(_ p: Phase) {
         phase = p
+        if p == .idle, restartAfterTranscription { restartWorker() }
         cancelRequested = false
         if p != .recording { pressedAt = nil }
         updateEscMonitor()

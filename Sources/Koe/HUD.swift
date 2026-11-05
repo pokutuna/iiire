@@ -157,7 +157,7 @@ final class HUDController {
             ("pasted", .result(.pasted, "音声入力のテストです。設定画面から出力の方法を変えられます。")),
             ("copied", .result(.copied, "音声入力のテストです。")),
             ("not-pasted", .result(.notPasted, "音声入力のテストです。")),
-            ("error", .error(String(localized: "No sound from the microphone. Check the microphone in Settings."))),
+            ("error", .error(String(localized: "No speech detected."))),
         ]
         for (appearance, name) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
             for (label, content) in samples {
@@ -320,7 +320,7 @@ private struct ResultContent: View {
         switch result {
         case .pasted: nil
         case .copied: "Copied to clipboard"
-        case .notPasted: "Could not paste. The text is in the clipboard."
+        case .notPasted: "Could not paste. Paste from the clipboard."
         }
     }
 }

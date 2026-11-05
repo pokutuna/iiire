@@ -253,7 +253,7 @@ private struct RecognitionSettings: View {
         }
         .settingsForm()
         .onAppear { state.refreshModels() }
-        .onChange(of: model) { state.restartWorker() }
+        .onChange(of: model) { state.modelChanged() }
     }
 
     @ViewBuilder

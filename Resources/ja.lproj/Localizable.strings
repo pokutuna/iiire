@@ -1,15 +1,13 @@
 /* 日本語訳。キーはソースに書いた英語の文字列 */
 
 "Accessibility" = "アクセシビリティ";
-"Allow" = "許可する";
+"Allow" = "許可";
 "Automatic" = "自動";
 "Cancel" = "キャンセル";
-"Cannot open the input device." = "入力デバイスを開けません";
-"Cannot start recording: %@" = "録音を開始できません: %@";
 "Cannot start the speech worker: %@" = "speech worker を起動できません: %@";
 "Change…" = "変更…";
-"Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own)." = "⌃ ⌥ ⇧ ⌘ のどれかと組み合わせてください (F キーは単独でも可)";
-"Copy to clipboard only" = "クリップボードにコピーのみ";
+"Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own)." = "⌃、⌥、⇧、⌘ のいずれかと組み合わせてください (F キーは単独でも使えます)。";
+"Copy to clipboard only" = "クリップボードにコピーするだけ";
 "Eisu" = "英数";
 "English" = "英語";
 "Granted" = "許可済み";
@@ -17,7 +15,7 @@
 "Hint (names and terms)" = "ヒント (固有名詞や用語)";
 "History (click to copy)" = "履歴 (クリックでコピー)";
 "Hotkey" = "ホットキー";
-"Hotkey: %@ (press to toggle, hold to talk)" = "ホットキー: %@ (短く押すとトグル、長押しで押している間)";
+"Hotkey: %@ (press to toggle, hold to talk)" = "ホットキー: %@ (短く押すと開始・停止、長押しで押している間だけ録音)";
 "Japanese" = "日本語";
 "Kana" = "かな";
 "Language" = "言語";
@@ -26,11 +24,9 @@
 "Left ⌘" = "左 ⌘";
 "Left ⌥" = "左 ⌥";
 "Microphone" = "マイク";
-"Microphone access is not allowed (System Settings > Privacy & Security > Microphone)." = "マイクへのアクセスが許可されていません (システム設定 > プライバシーとセキュリティ > マイク)";
 "Model" = "モデル";
-"No sound from the microphone. Check the microphone in Settings." = "マイクの音が入っていません (設定でマイクを確認してください)";
 "Not found" = "見つかりません";
-"Only one modifier key can be used on its own." = "修飾キーだけで登録できるのは 1 つのキーです";
+"Only one modifier key can be used on its own." = "修飾キーだけで登録するときは、1 つのキーにしてください。";
 "Open System Settings" = "システム設定を開く";
 "Output" = "出力";
 "Parakeet TDT-CTC ja (ja, short utterances, 0.66 GB)" = "Parakeet TDT-CTC ja (ja, 短い発話, 0.66 GB)";
@@ -39,7 +35,7 @@
 "Koe needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
 "Play sound effects" = "効果音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
-"Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消し。";
+"Press briefly to start recording and press again to stop. Hold to record only while held. Esc cancels." = "短く押すと録音を開始し、もう一度押すと止めます。長押しすると押している間だけ録音します。Esc で取り消せます。";
 "Press keys…" = "キーを押す…";
 "Press the keys to use (Esc to cancel)" = "登録するキーを押してください (Esc で取り消し)";
 "Preview" = "試聴";
@@ -68,12 +64,11 @@
 "The worker exited (status %lld) %@" = "worker が終了しました (status %lld) %@";
 "The worker is not running." = "worker が起動していません";
 "The worker was stopped." = "worker を停止しました";
-"This shortcut cannot be registered. Another app may be using it." = "このショートカットは登録できません (他のアプリが使っている可能性があります)";
+"This shortcut cannot be registered. Another app may be using it." = "このショートカットは登録できません。他のアプリが使っている可能性があります。";
 "Transcribed Text" = "書き起こした文字列";
 "Transcribing…" = "書き起こし中…";
-"Transcription failed: %@" = "書き起こしに失敗: %@";
 "Type at cursor" = "カーソル位置に入力";
-"Type at cursor and keep in clipboard" = "カーソル位置に入力 + クリップボードに残す";
+"Type at cursor and keep in clipboard" = "カーソル位置に入力し、クリップボードにも残す";
 "Vocabulary (one per line, written=reading)" = "語彙 (1 行に 1 つ、表記=読み)";
 "speech Command" = "speech コマンド";
 "Key event interval" = "キー入力の間隔";
@@ -117,16 +112,19 @@
 "Until you record a key, the default paste method is used." = "キーを記録するまでは、既定の送り方を使います。";
 "Until you record a key, ⌘V is sent with right ⌘." = "キーを記録するまでは、右 ⌘ で ⌘V を送ります。";
 "If ⌘V is on a different key in your keyboard layout, choose Custom key and press the keys that paste." = "キー配列によって ⌘V が別の位置にあるときは、「キーを指定」を選び、ペーストになるキーを押して記録します。";
-"A custom key is sent instead of ⌘V each time you dictate, so choose the key that pastes in that app. It must include ⌃, ⌥, ⇧ or ⌘ (or be an F key). Return, Tab, Esc, Delete, ⌘Q, ⌘W, ⌘H and ⌘M cannot be used." = "指定したキーは、書き起こすたびに ⌘V の代わりに送ります。そのアプリでペーストになるキーを選んでください。⌃ ⌥ ⇧ ⌘ のいずれかを含むキー (F キーは単独でも可) に限り、Return、Tab、Esc、Delete、⌘Q、⌘W、⌘H、⌘M は使えません。";
+"A custom key is sent instead of ⌘V each time you dictate, so choose the key that pastes in that app. It must include ⌃, ⌥, ⇧ or ⌘ (or be an F key). Return, Tab, Esc, Delete, ⌘Q, ⌘W, ⌘H and ⌘M cannot be used." = "指定したキーは、書き起こすたびに ⌘V の代わりに送ります。そのアプリでペーストになるキーを選んでください。⌃、⌥、⇧、⌘ のいずれかを含むキー (F キーは単独でも可) に限り、Return、Tab、Esc、Delete、⌘Q、⌘W、⌘H、⌘M は使えません。";
 "A modifier key alone cannot be sent." = "修飾キー単独は送れません。";
 "Return, Tab, Esc and Delete cannot be sent." = "Return、Tab、Esc、Delete は送れません。";
 "⌘Q, ⌘W, ⌘H and ⌘M close or hide the app, so they cannot be sent." = "⌘Q、⌘W、⌘H、⌘M はアプリを閉じたり隠したりするので送れません。";
 
 /* HUD */
+"No speech detected." = "音声を検出できませんでした";
+"Couldn't get input from the microphone." = "マイクから入力を受け取れませんでした";
+"Recording stopped partway." = "録音が途中で止まりました";
+"Allow microphone access in System Settings." = "システム設定でマイクを許可してください";
+"Transcription failed." = "書き起こせませんでした";
+"Could not paste. Paste from the clipboard." = "ペーストできませんでした。クリップボードから貼り付けてください";
 "Copied to clipboard" = "クリップボードにコピーしました";
-"Could not paste. The text is in the clipboard." = "ペーストできませんでした。文字列はクリップボードにあります。";
-"Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc ですぐに止めます";
-"The microphone did not respond. Reconnect it or choose another microphone in Settings." = "マイクが応答しません。つなぎ直すか、設定で別のマイクを選んでください";
-"⇧ alone takes over typing. Add ⌃, ⌥ or ⌘." = "⇧ だけでは大文字の入力に使えなくなります。⌃、⌥、⌘ のいずれかを加えてください";
-"No audio arrived from the microphone. Reconnect it or choose another microphone in Settings." = "マイクから音が届きませんでした。つなぎ直すか、設定で別のマイクを選んでください";
+"Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc を押すとすぐに止めます";
+"⇧ alone takes over typing. Add ⌃, ⌥ or ⌘." = "⇧ だけだと大文字が打てなくなります。⌃、⌥、⌘ のいずれかを加えてください。";
 "Disconnected Microphone" = "接続されていないマイク";

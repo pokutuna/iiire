@@ -6,9 +6,15 @@ set -euo pipefail
 NAME="${KOE_SIGN_IDENTITY:-Koe Local Signing}"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
-if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
+# build-app.sh と同じく、秘密鍵もある (署名に使える) ものを名前の完全一致で探す
+if security find-identity -p codesigning | grep -qF "\"$NAME\""; then
   echo "already exists: $NAME"
   exit 0
+fi
+# 証明書だけが残っていると、作り直しても同じ名前の証明書が並ぶ
+if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
+  echo "error: '$NAME' の証明書はあるが、署名に使える秘密鍵がない。キーチェーンアクセスで証明書を削除してから作り直す" >&2
+  exit 1
 fi
 
 TMP="$(mktemp -d)"

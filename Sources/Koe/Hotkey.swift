@@ -142,12 +142,12 @@ struct Shortcut: Codable, Hashable {
     }
 }
 
-/// ホットキーの押下・解放を通知する。
+/// ホットキーの押下・解放を、キーを押した・離した時刻 (起動からの秒数) とともに通知する。
 /// 修飾キー単独は NSEvent のモニタで見る (アクセシビリティ権限が必要)。組み合わせは Carbon で登録する。
 @MainActor
 final class HotkeyMonitor {
-    var onPress: (() -> Void)?
-    var onRelease: (() -> Void)?
+    var onPress: ((TimeInterval) -> Void)?
+    var onRelease: ((TimeInterval) -> Void)?
     /// 修飾キーを押したまま別のキーを押した (= ショートカットの一部として使った)
     var onInterrupted: (() -> Void)?
 
@@ -197,10 +197,10 @@ final class HotkeyMonitor {
             let down = Shortcut.isModifierKeyDown(keyCode, flags: e.modifierFlags)
             if down, !isDown {
                 isDown = true
-                onPress?()
+                onPress?(e.timestamp)
             } else if !down, isDown {
                 isDown = false
-                onRelease?()
+                onRelease?(e.timestamp)
             }
         }
         let handleKey: (NSEvent) -> Void = { [weak self] e in
@@ -225,13 +225,14 @@ final class HotkeyMonitor {
             guard let event, let userData else { return noErr }
             let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userData).takeUnretainedValue()
             let kind = GetEventKind(event)
+            let time = GetEventTime(event)
             MainActor.assumeIsolated {
                 if kind == UInt32(kEventHotKeyPressed), !monitor.isDown {
                     monitor.isDown = true
-                    monitor.onPress?()
+                    monitor.onPress?(time)
                 } else if kind == UInt32(kEventHotKeyReleased), monitor.isDown {
                     monitor.isDown = false
-                    monitor.onRelease?()
+                    monitor.onRelease?(time)
                 }
             }
             return noErr

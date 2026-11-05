@@ -20,52 +20,71 @@ enum TextInserter {
         await insert(text, config: config, onResult: onResult)
     }
 
-    /// 戻す前のクリップボードの中身と、文字列を置いた後の changeCount。
-    /// 戻す前に次の入力が来たら、この中身を引き継ぐ (置いた文字列を元の中身と取り違えない)
-    private static var pendingRestore: (items: [NSPasteboardItem], changeCount: Int)?
+    /// 戻す前のクリップボードの中身と、文字列を置いた後の changeCount
+    private typealias Restore = (items: [NSPasteboardItem], changeCount: Int)
+    /// まだ戻していないクリップボードの中身。戻す前に次の入力が来たら、これを引き継ぐ
+    /// (置いた文字列を元の中身と取り違えない)
+    private static var pendingRestore: Restore?
+    /// キーを送っている最中の入力。次の入力は、これが送り終えるまで待つ
+    /// (送っている途中のキーと、次の入力のクリップボードやキーが混ざらないように)
+    private static var sending: Task<Void, Never>?
 
     static func insert(_ text: String, config: OutputConfig, onResult: (InsertResult) -> Void) async {
+        let previous = sending
+        let send = Task {
+            await previous?.value
+            return await paste(text, config: config)
+        }
+        sending = Task { _ = await send.value }
+        let (result, changeCount) = await send.value
+        onResult(result)
+
+        guard result == .pasted else { return }
+        // ペースト先が読み終えるまで待ってから戻す
+        try? await Task.sleep(for: .milliseconds(Defaults.clipboardRestoreDelayMs))
+        let pb = NSPasteboard.general
+        // その間に誰かがコピーしたか、次の入力が引き継いだ
+        guard pb.changeCount == changeCount, let restore = pendingRestore, restore.changeCount == changeCount else { return }
+        pendingRestore = nil
+        pb.clearContents()
+        if !restore.items.isEmpty { pb.writeObjects(restore.items) }
+    }
+
+    /// 文字列をクリップボードに置き、ペーストのキーを送る。置いた後の changeCount も返す。
+    /// 後で戻す中身は pendingRestore に残す
+    private static func paste(_ text: String, config: OutputConfig) async -> (InsertResult, changeCount: Int) {
         let pb = NSPasteboard.general
         let pending = pendingRestore.flatMap { $0.changeCount == pb.changeCount ? $0.items : nil }
         pendingRestore = nil
 
         guard config.output != .clipboard else {
             put(text, on: pb, transient: false)
-            onResult(.copied)
-            return
+            return (.copied, pb.changeCount)
         }
 
         let saved = config.output == .paste ? (pending ?? snapshot(pb)) : nil
         // 元に戻すなら一時的な中身なので、履歴を取るアプリに残さないよう伝える
         put(text, on: pb, transient: saved != nil)
         let changeCount = pb.changeCount
-        if let saved { pendingRestore = (saved, changeCount) }
+        pendingRestore = saved.map { Restore($0, changeCount) }
         let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         try? await Task.sleep(for: .milliseconds(50))
-        // 待つ間に誰かがコピーしたか、最前面のアプリが変わったら送らない (別の中身や別のアプリにキーを送らない)
-        let unchanged = pb.changeCount == changeCount
-            && NSWorkspace.shared.frontmostApplication?.processIdentifier == target
-        guard unchanged, await sendPaste(config) else {
+        // 誰かがコピーしたか、最前面のアプリが変わったら送らない (別の中身や別のアプリにキーを送らない)。
+        // キーを送る間にも変わりうるので、ペーストのキーを押す直前にも確かめる
+        let unchanged = {
+            pb.changeCount == changeCount && NSWorkspace.shared.frontmostApplication?.processIdentifier == target
+        }
+        guard await sendPaste(config, while: unchanged) else {
             // 送れなければクリップボードに残す。戻さないので、履歴にも残してよいものとして置き直す
             Log.info("paste skipped (text left in clipboard)")
             if pb.changeCount == changeCount {
                 pendingRestore = nil
                 if saved != nil { put(text, on: pb, transient: false) }
             }
-            onResult(.notPasted)
-            return
+            return (.notPasted, changeCount)
         }
-        onResult(.pasted)
-
-        guard let saved else { return }
-        // ペースト先が読み終えるまで待ってから戻す
-        try? await Task.sleep(for: .milliseconds(Defaults.clipboardRestoreDelayMs))
-        // その間に誰かがコピーしたか、次の入力が引き継いだ
-        guard pb.changeCount == changeCount else { return }
-        pendingRestore = nil
-        pb.clearContents()
-        if !saved.isEmpty { pb.writeObjects(saved) }
+        return (.pasted, changeCount)
     }
 
     /// Koe が送ったキー入力の目印 (eventSourceUserData)。自分のホットキーとして拾わないために使う
@@ -108,7 +127,7 @@ enum TextInserter {
         }
     }
 
-    private static func sendPaste(_ config: OutputConfig) async -> Bool {
+    private static func sendPaste(_ config: OutputConfig, while canSend: () -> Bool) async -> Bool {
         guard AXIsProcessTrusted() else {
             Log.info("paste: accessibility not granted")
             return false
@@ -122,14 +141,14 @@ enum TextInserter {
         case .rightCommand:
             // 右 ⌘ を押して、物理的に押されている左 ⌘ と干渉しないようにする。
             // flags は ⌘ だけにし、左右のビットは付けない (VoiceInk と同じ送り方)
-            return await postKey(0x09, modifiers: [ModifierKey(code: 0x36, flags: .maskCommand)], interval: interval)
+            return await postKey(0x09, modifiers: [ModifierKey(code: 0x36, flags: .maskCommand)], interval: interval, while: canSend)
         case .leftCommand:
-            return await postKey(0x09, modifiers: [.leftCommand], interval: interval)
+            return await postKey(0x09, modifiers: [.leftCommand], interval: interval, while: canSend)
         case .appleScript:
-            return pasteWithAppleScript()
+            return canSend() && pasteWithAppleScript()
         case .custom:
             guard let key = config.customKey else { return false }
-            return await postKey(key.keyCode, modifiers: ModifierKey.left(key.modifierFlags), interval: interval)
+            return await postKey(key.keyCode, modifiers: ModifierKey.left(key.modifierFlags), interval: interval, while: canSend)
         }
     }
 
@@ -170,34 +189,42 @@ enum TextInserter {
     }
 
     /// 修飾キーを順に押し、キーを押して離し、修飾キーを逆順に離す。
-    /// 続けて送ると取りこぼすアプリがあるので、イベントの間を interval ms 空ける
-    private static func postKey(_ key: CGKeyCode, modifiers: [ModifierKey], interval: Int) async -> Bool {
+    /// 続けて送ると取りこぼすアプリがあるので、イベントの間を interval ms 空ける。
+    /// キーを押す直前に canSend が false なら、キーは押さずに修飾キーだけ離して false を返す
+    private static func postKey(_ key: CGKeyCode, modifiers: [ModifierKey], interval: Int,
+                                while canSend: () -> Bool) async -> Bool {
         let src = CGEventSource(stateID: .privateState)
         src?.userData = eventMarker
-        var events: [CGEvent] = []
+        func event(_ code: CGKeyCode, down: Bool, _ flags: CGEventFlags) -> CGEvent? {
+            let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down)
+            e?.flags = flags
+            return e
+        }
         var flags: CGEventFlags = []
+        var press: [CGEvent] = [], release: [CGEvent] = []
         for m in modifiers {
             flags.formUnion(m.flags)
-            guard let e = CGEvent(keyboardEventSource: src, virtualKey: m.code, keyDown: true) else { return false }
-            e.flags = flags
-            events.append(e)
+            guard let e = event(m.code, down: true, flags) else { return false }
+            press.append(e)
         }
-        for down in [true, false] {
-            guard let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: down) else { return false }
-            e.flags = flags
-            events.append(e)
-        }
+        guard let keyDown = event(key, down: true, flags), let keyUp = event(key, down: false, flags) else { return false }
         for m in modifiers.reversed() {
             flags.subtract(m.flags)
-            guard let e = CGEvent(keyboardEventSource: src, virtualKey: m.code, keyDown: false) else { return false }
-            e.flags = flags
-            events.append(e)
+            guard let e = event(m.code, down: false, flags) else { return false }
+            release.append(e)
         }
-        for (i, e) in events.enumerated() {
-            if i > 0, interval > 0 { try? await Task.sleep(for: .milliseconds(interval)) }
-            e.post(tap: .cghidEventTap)
+
+        func post(_ events: [CGEvent]) async {
+            for e in events {
+                if interval > 0 { try? await Task.sleep(for: .milliseconds(interval)) }
+                e.post(tap: .cghidEventTap)
+            }
         }
-        return true
+        guard canSend() else { return false }
+        await post(press)
+        let ok = canSend()
+        await post(ok ? [keyDown, keyUp] + release : release)
+        return ok
     }
 
     /// System Events に ⌘V を打ってもらう。文字 "v" を指定するので、多くのキー配列でそのまま使える。
