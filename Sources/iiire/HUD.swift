@@ -152,7 +152,7 @@ final class HUDController {
     static func snapshot(to dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let samples: [(String, HUDContent)] = [
-            ("recording", .recording(startedAt: Date().addingTimeInterval(-7), device: "HyperX QuadCast S")),
+            ("recording", .recording(startedAt: Date().addingTimeInterval(-7), device: "MacBook Pro Microphone")),
             ("working", .working(String(localized: "Transcribing…"))),
             ("pasted", .result(.pasted, "音声入力のテストです。設定画面から出力の方法を変えられます。")),
             ("copied", .result(.copied, "音声入力のテストです。")),
@@ -164,7 +164,7 @@ final class HUDController {
                 let model = HUDModel()
                 for i in 0..<HUDModel.barCount { model.push(0.25 + 0.6 * abs(Float(sin(Double(i) * 0.7)))) }
                 model.content = content
-                let host = NSHostingView(rootView: HUDView(model: model, snapshotBackground: true))
+                let host = NSHostingView(rootView: HUDView(model: model, snapshot: true))
                 host.appearance = NSAppearance(named: appearance)
                 host.frame = NSRect(origin: .zero, size: panelSize)
                 host.layoutSubtreeIfNeeded()
@@ -179,8 +179,9 @@ final class HUDController {
 
 private struct HUDView: View {
     @ObservedObject var model: HUDModel
-    /// 画面の確認用。書き出しでは背後のぼかしが描かれないので、後ろに色を敷く
-    var snapshotBackground = false
+    /// 画面の確認用。書き出しでは背後のぼかしが描かれず濁った灰色になるので、
+    /// ぼかしの代わりに不透明な背景色で塗り、まわりは透明にする
+    var snapshot = false
 
     var body: some View {
         VStack {
@@ -192,7 +193,6 @@ private struct HUDView: View {
         }
         .padding(.bottom, 24)
         .frame(width: HUDController.panelSize.width, height: HUDController.panelSize.height)
-        .background(snapshotBackground ? Color(nsColor: .windowBackgroundColor).opacity(0.6) : .clear)
     }
 
     private func bubble(_ content: HUDContent) -> some View {
@@ -220,8 +220,8 @@ private struct HUDView: View {
         .padding(.vertical, 10)
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.clear)
-                .background(VisualEffect().clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous)))
+                .fill(snapshot ? Color(nsColor: .windowBackgroundColor) : .clear)
+                .background(snapshot ? nil : VisualEffect().clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous)))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
         }
