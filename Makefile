@@ -4,7 +4,7 @@ APP          := build/iiire.app
 SPEECH_SRC   := vendor/speech.cpp
 SPEECH_BUILD := build/speech.cpp
 SPEECH       := $(SPEECH_BUILD)/speech
-INSTALL_DIR  ?= $(HOME)/Applications
+INSTALL_DIR  ?= /Applications
 
 # OpenMP を切ると Homebrew の libomp に依存しない単体の実行ファイルになる。
 # GGML_NATIVE を切ると、ビルドした Mac の CPU に依存する最適化をしない
@@ -30,6 +30,7 @@ install: app
 	mkdir -p "$(INSTALL_DIR)"
 	ditto $(APP) "$(INSTALL_DIR)/iiire.app"
 	@echo "installed: $(INSTALL_DIR)/iiire.app"
+	open "$(INSTALL_DIR)/iiire.app"
 
 test:
 	swift test

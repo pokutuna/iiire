@@ -17,15 +17,14 @@
 
 ### 1. ビルドしてインストール
 
-配布バイナリはないため、ソースからビルドして `~/Applications/iiire.app` に配置します。
+配布バイナリはないため、ソースからビルドして `/Applications/iiire.app` に配置します。
 アプリには、`make signing-identity` で各自の Mac に作る自己署名証明書で署名します。
 
 ```sh
 git clone --recurse-submodules https://github.com/pokutuna/iiire.git
 cd iiire
 make signing-identity   # 初回のみ: 再ビルド時に権限が外れないよう自己署名証明書を作成
-make install            # ~/Applications/iiire.app にビルド・インストール
-open ~/Applications/iiire.app
+make install            # /Applications にインストールして起動（管理者でなければ INSTALL_DIR=~/Applications を付ける）
 ```
 
 ### 2. マイクとアクセシビリティを許可する（初回のみ）
@@ -42,8 +41,17 @@ open ~/Applications/iiire.app
 ```sh
 git pull --recurse-submodules
 make install
-open ~/Applications/iiire.app
 ```
+
+### アンインストール
+
+```sh
+rm -rf /Applications/iiire.app
+tccutil reset All io.github.pokutuna.iiire   # 権限
+defaults delete io.github.pokutuna.iiire     # 設定
+```
+
+認識モデルは `~/Library/Caches/speech.cpp`、署名用の証明書はキーチェーンの「iiire Local Signing」に残ります。
 
 ## 使い方
 

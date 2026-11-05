@@ -13,7 +13,7 @@ iiire is a macOS 14+ (Apple silicon) menu-bar dictation app. A hotkey records fr
 ```sh
 make app                               # → build/iiire.app (speech.cpp + release build + resources + signing)
 make run                               # make app, then relaunch it
-make install                           # make app, quit iiire, copy to ~/Applications. Does not relaunch it
+make install                           # make app, then replace /Applications/iiire.app and relaunch it
 make test                              # swift test. XCTest needs full Xcode, not just Command Line Tools
 swift test --filter AppRuleTests/name  # a single test
 ```
