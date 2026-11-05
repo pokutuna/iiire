@@ -335,6 +335,7 @@ final class AppState: ObservableObject {
                     return
                 }
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                // 話した内容はログに残さない。開発用のビルドだけ確認のために書く
                 #if DEBUG
                 Log.info("transcribed: \(text.debugDescription)")
                 #else

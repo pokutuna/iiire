@@ -1,6 +1,6 @@
 #!/bin/bash
 # iiire.app に署名するための自己署名証明書をログインキーチェーンに作る。
-# 署名の要件が証明書に紐づくので、作り直してもアクセシビリティなどの許可が外れなくなる。
+# 署名の要件が証明書に紐づくので、アプリをビルドし直してもアクセシビリティなどの許可が外れない。
 set -euo pipefail
 
 NAME="${IIIRE_SIGN_IDENTITY:-iiire Local Signing}"

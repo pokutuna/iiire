@@ -64,15 +64,16 @@ private struct MenuBarIcon: View {
     @EnvironmentObject var state: AppState
 
     var body: some View {
+        Image(nsImage: MenuBarGlyph.image(glyphState))
+    }
+
+    private var glyphState: MenuBarGlyph.State {
         switch state.phase {
-        case .recording: Image(systemName: "mic.fill")
-        case .transcribing: Image(systemName: "ellipsis.bubble")
+        case .recording: return .recording
+        case .transcribing: return .transcribing
         case .idle:
-            if case .failed = state.workerState {
-                Image(systemName: "mic.slash")
-            } else {
-                Image(systemName: "mic")
-            }
+            if case .failed = state.workerState { return .unavailable }
+            return .idle
         }
     }
 }

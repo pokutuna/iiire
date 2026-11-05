@@ -140,7 +140,7 @@ enum TextInserter {
         switch config.keystroke {
         case .rightCommand:
             // 右 ⌘ を押して、物理的に押されている左 ⌘ と干渉しないようにする。
-            // flags は ⌘ だけにし、左右のビットは付けない (VoiceInk と同じ送り方)
+            // flags は ⌘ だけにし、左右のビットは付けない
             return await postKey(0x09, modifiers: [ModifierKey(code: 0x36, flags: .maskCommand)], interval: interval, while: canSend)
         case .leftCommand:
             return await postKey(0x09, modifiers: [.leftCommand], interval: interval, while: canSend)

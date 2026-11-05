@@ -22,9 +22,10 @@ cp "$BIN/iiire" "$APP/Contents/MacOS/iiire"
 cp "$SPEECH" "$APP/Contents/MacOS/speech"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
+swift "$ROOT/scripts/make-icon.swift" "$ROOT/Resources/AppIcon.svg" "$APP/Contents/Resources/AppIcon.icns"
 
 # scripts/create-signing-identity.sh で作った証明書があればそれで署名する。
-# アドホック署名だと許可がビルドのハッシュ値に紐づき、作り直すたびにアクセシビリティの許可が外れる
+# アドホック署名だと許可がビルドのハッシュ値に紐づき、ビルドし直すたびにアクセシビリティの許可が外れる
 IDENTITY="${IIIRE_SIGN_IDENTITY:-iiire Local Signing}"
 # 証明書だけでなく秘密鍵もある (署名に使える) ものを、名前の完全一致で探す
 if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
