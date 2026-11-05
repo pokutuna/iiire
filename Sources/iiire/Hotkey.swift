@@ -238,7 +238,7 @@ final class HotkeyMonitor {
             return noErr
         }, types.count, &types, me, &handlerRef)
 
-        let id = EventHotKeyID(signature: OSType(0x4B4F_4521), id: 1) // 'KOE!'
+        let id = EventHotKeyID(signature: OSType(0x4949_5245), id: 1) // 'IIRE'
         let status = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef)
         return status == noErr
     }

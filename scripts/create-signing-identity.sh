@@ -1,9 +1,9 @@
 #!/bin/bash
-# Koe.app に署名するための自己署名証明書をログインキーチェーンに作る。
+# iiire.app に署名するための自己署名証明書をログインキーチェーンに作る。
 # 署名の要件が証明書に紐づくので、作り直してもアクセシビリティなどの許可が外れなくなる。
 set -euo pipefail
 
-NAME="${KOE_SIGN_IDENTITY:-Koe Local Signing}"
+NAME="${IIIRE_SIGN_IDENTITY:-iiire Local Signing}"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
 # build-app.sh と同じく、秘密鍵もある (署名に使える) ものを名前の完全一致で探す
@@ -36,6 +36,6 @@ CNF
 /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
   -keyout "$TMP/key.pem" -out "$TMP/cert.pem" -config "$TMP/cert.cnf"
 /usr/bin/openssl pkcs12 -export -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
-  -out "$TMP/id.p12" -passout pass:koe -name "$NAME"
-security import "$TMP/id.p12" -k "$KEYCHAIN" -P koe -T /usr/bin/codesign
+  -out "$TMP/id.p12" -passout pass:iiire -name "$NAME"
+security import "$TMP/id.p12" -k "$KEYCHAIN" -P iiire -T /usr/bin/codesign
 echo "created: $NAME"

@@ -1,7 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import XCTest
-@testable import Koe
+@testable import iiire
 
 /// キーを押す順序に対して、記録されるショートカットを確かめる
 @MainActor

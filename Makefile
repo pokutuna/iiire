@@ -1,6 +1,6 @@
-# Koe.app を作る。speech.cpp は submodule (vendor/speech.cpp) からビルドして同梱する。
+# iiire.app を作る。speech.cpp は submodule (vendor/speech.cpp) からビルドして同梱する。
 
-APP          := build/Koe.app
+APP          := build/iiire.app
 SPEECH_SRC   := vendor/speech.cpp
 SPEECH_BUILD := build/speech.cpp
 SPEECH       := $(SPEECH_BUILD)/speech
@@ -36,15 +36,15 @@ test:
 	swift test
 
 run: app
-	-pkill -x Koe
+	-pkill -x iiire
 	open $(APP)
 
 install: app
-	-pkill -x Koe
-	rm -rf "$(INSTALL_DIR)/Koe.app"
+	-pkill -x iiire
+	rm -rf "$(INSTALL_DIR)/iiire.app"
 	mkdir -p "$(INSTALL_DIR)"
-	ditto $(APP) "$(INSTALL_DIR)/Koe.app"
-	@echo "installed: $(INSTALL_DIR)/Koe.app"
+	ditto $(APP) "$(INSTALL_DIR)/iiire.app"
+	@echo "installed: $(INSTALL_DIR)/iiire.app"
 
 signing-identity:
 	scripts/create-signing-identity.sh

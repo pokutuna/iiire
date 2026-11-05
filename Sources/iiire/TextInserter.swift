@@ -87,8 +87,8 @@ enum TextInserter {
         return (.pasted, changeCount)
     }
 
-    /// Koe が送ったキー入力の目印 (eventSourceUserData)。自分のホットキーとして拾わないために使う
-    private nonisolated static let eventMarker: Int64 = 0x4B4F45 // "KOE"
+    /// iiire が送ったキー入力の目印 (eventSourceUserData)。自分のホットキーとして拾わないために使う
+    private nonisolated static let eventMarker: Int64 = 0x494952 // "IIR"
 
     nonisolated static func isSynthesized(_ e: NSEvent) -> Bool {
         e.cgEvent?.getIntegerValueField(.eventSourceUserData) == eventMarker

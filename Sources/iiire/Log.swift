@@ -1,10 +1,10 @@
 import Foundation
 
-/// ~/Library/Logs/Koe.log に追記する簡単なログ
+/// ~/Library/Logs/iiire.log に追記する簡単なログ
 enum Log {
     private static let url = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/Koe.log")
-    private static let queue = DispatchQueue(label: "koe.log")
+        .appendingPathComponent("Library/Logs/iiire.log")
+    private static let queue = DispatchQueue(label: "iiire.log")
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss.SSS"

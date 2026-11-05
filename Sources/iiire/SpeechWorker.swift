@@ -23,7 +23,7 @@ final class SpeechWorker {
     private var process: Process?
     private var stdin: FileHandle?
     private var outputs: [FileHandle] = []
-    private let writeQueue = DispatchQueue(label: "koe.worker.write")
+    private let writeQueue = DispatchQueue(label: "iiire.worker.write")
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
     private var pending: [String: CheckedContinuation<String, Error>] = [:]
@@ -39,7 +39,7 @@ final class SpeechWorker {
         var candidates: [String] = []
         let configured = Defaults.speechPath.trimmingCharacters(in: .whitespaces)
         if !configured.isEmpty { candidates.append((configured as NSString).expandingTildeInPath) }
-        if let env = ProcessInfo.processInfo.environment["KOE_SPEECH"] { candidates.append(env) }
+        if let env = ProcessInfo.processInfo.environment["IIIRE_SPEECH"] { candidates.append(env) }
         if let bundled = Bundle.main.url(forAuxiliaryExecutable: "speech")?.path { candidates.append(bundled) }
         candidates += [
             NSHomeDirectory() + "/.local/bin/speech",

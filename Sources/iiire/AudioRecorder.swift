@@ -159,7 +159,7 @@ final class AudioRecorder {
         let session: Session
         let onLevel: (Float) -> Void
         let onLost: () -> Void
-        let queue = DispatchQueue(label: "koe.recorder")
+        let queue = DispatchQueue(label: "iiire.recorder")
         /// AUHAL から受け取る形式 (デバイスに合わせる。AUHAL は入力のレートを変換しない)
         private(set) var rate: Double = 0
         private(set) var channels = 0
@@ -406,5 +406,5 @@ private func check(_ status: OSStatus, _ what: String) throws {
 }
 
 private func openError(_ status: OSStatus) -> Error {
-    NSError(domain: "Koe", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Cannot open the input device."])
+    NSError(domain: "iiire", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Cannot open the input device."])
 }

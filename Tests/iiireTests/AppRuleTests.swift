@@ -1,6 +1,6 @@
 import Carbon.HIToolbox
 import XCTest
-@testable import Koe
+@testable import iiire
 
 /// 入力先のアプリのルールで、既定の出力の設定を項目ごとに上書きする
 final class AppRuleTests: XCTestCase {

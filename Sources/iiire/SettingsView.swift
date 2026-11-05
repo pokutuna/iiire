@@ -105,7 +105,7 @@ private struct GeneralSettings: View {
                 PermissionRow(
                     title: "Microphone",
                     granted: micStatus == .authorized,
-                    consequence: "Koe cannot record.",
+                    consequence: "iiire cannot record.",
                     actionTitle: "Open System Settings"
                 ) {
                     openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
@@ -113,7 +113,7 @@ private struct GeneralSettings: View {
                 PermissionRow(
                     title: "Accessibility",
                     granted: axTrusted,
-                    consequence: "Koe cannot type at the cursor, and a modifier key alone cannot be the hotkey.",
+                    consequence: "iiire cannot type at the cursor, and a modifier key alone cannot be the hotkey.",
                     actionTitle: "Allow"
                 ) {
                     TextInserter.requestAccessibility()
@@ -122,7 +122,7 @@ private struct GeneralSettings: View {
             } header: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Permissions")
-                    Text("Koe needs these permissions to record from the microphone and type at the cursor.")
+                    Text("iiire needs these permissions to record from the microphone and type at the cursor.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } footer: {

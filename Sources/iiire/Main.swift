@@ -9,7 +9,7 @@ enum Main {
         signal(SIGPIPE, SIG_IGN)
         Defaults.register()
         let args = CommandLine.arguments
-        // 動作確認用: Koe --transcribe FILE [MODEL]
+        // 動作確認用: iiire --transcribe FILE [MODEL]
         if args.count >= 3, args[1] == "--transcribe" {
             let model = args.count >= 4 ? args[3] : Defaults.model.id
             Task { @MainActor in
@@ -17,13 +17,13 @@ enum Main {
             }
             RunLoop.main.run()
         }
-        // 画面の確認用: Koe --snapshot-hud DIR で HUD の各表示を PNG に書き出す
+        // 画面の確認用: iiire --snapshot-hud DIR で HUD の各表示を PNG に書き出す
         if args.count >= 3, args[1] == "--snapshot-hud" {
             _ = NSApplication.shared
             MainActor.assumeIsolated { HUDController.snapshot(to: URL(fileURLWithPath: args[2])) }
             exit(0)
         }
-        KoeApp.main()
+        IiireApp.main()
     }
 
     @MainActor

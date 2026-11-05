@@ -1,4 +1,4 @@
-# Koe
+# iiire
 
 [speech.cpp](https://github.com/nyosegawa/speech.cpp) で書き起こす、自分用の小さな音声入力アプリ (macOS, Apple silicon)。
 メニューバーに常駐し、ホットキーで録音して、書き起こした文字列をカーソル位置に入力する。
@@ -15,19 +15,19 @@ make run                # ビルドして起動する
 
 | make | 動作 |
 |---|---|
-| `make` / `make app` | speech.cpp と Koe をビルドし、`build/Koe.app` を作る |
+| `make` / `make app` | speech.cpp と iiire をビルドし、`build/iiire.app` を作る |
 | `make run` | ビルドして起動する |
-| `make install` | `~/Applications/Koe.app` に入れる (`INSTALL_DIR=/Applications` で変えられる)。起動中の Koe は終了する |
+| `make install` | `~/Applications/iiire.app` に入れる (`INSTALL_DIR=/Applications` で変えられる)。起動中の iiire は終了する |
 | `make test` | `swift test` |
 | `make signing-identity` | 署名用の自己署名証明書を作る (初回のみ) |
-| `make clean` | `Koe.app` と Swift のビルドを消す |
+| `make clean` | `iiire.app` と Swift のビルドを消す |
 | `make distclean` | speech.cpp のビルドも含めて消す |
 
-- speech.cpp は submodule (`vendor/speech.cpp`) で、使う版を固定している。`build/speech.cpp` にビルドし、`Koe.app/Contents/MacOS/speech` に同梱する
+- speech.cpp は submodule (`vendor/speech.cpp`) で、使う版を固定している。`build/speech.cpp` にビルドし、`iiire.app/Contents/MacOS/speech` に同梱する
   - `git pull` で固定した版が変わったときは `git submodule update --init --recursive` で合わせる (違っていれば `make` が知らせる)
 - `-DGGML_OPENMP=OFF -DGGML_NATIVE=OFF` でビルドし、Homebrew の libomp やビルドした Mac の CPU に依存しない単体の実行ファイルにする
 - モデルは初回に `speech` が Hugging Face から取得し、`~/Library/Caches/speech.cpp` に置く
-- 署名には `make signing-identity` で作る自己署名証明書「Koe Local Signing」を使う。アドホック署名だと許可がビルドのハッシュ値に紐づき、ビルドし直すたびにアクセシビリティの許可が外れるため
+- 署名には `make signing-identity` で作る自己署名証明書「iiire Local Signing」を使う。アドホック署名だと許可がビルドのハッシュ値に紐づき、ビルドし直すたびにアクセシビリティの許可が外れるため
 
 speech.cpp の版を上げるとき:
 
@@ -113,7 +113,7 @@ git add vendor/speech.cpp
 
 **詳細**
 
-- **speech コマンド**: 使う `speech` のパス。空なら、環境変数 `KOE_SPEECH`、`.app` に同梱したもの、`~/.local/bin/speech`、`/opt/homebrew/bin/speech`、`/usr/local/bin/speech` の順に探す
+- **speech コマンド**: 使う `speech` のパス。空なら、環境変数 `IIIRE_SPEECH`、`.app` に同梱したもの、`~/.local/bin/speech`、`/opt/homebrew/bin/speech`、`/usr/local/bin/speech` の順に探す
 - 「worker を再起動」で worker を起動し直す
 
 ## 表示言語
@@ -122,7 +122,7 @@ git add vendor/speech.cpp
 
 - 画面の文字列はソースに英語で書き、日本語訳は `Resources/ja.lproj/Localizable.strings` に置く。キーは英語の文字列そのもの
 - 許可を求めるダイアログ (マイク、オートメーション) の説明文の日本語訳は `Resources/ja.lproj/InfoPlist.strings`
-- 一時的に言語を変えて起動する: `build/Koe.app/Contents/MacOS/Koe -AppleLanguages '(en)'`
+- 一時的に言語を変えて起動する: `build/iiire.app/Contents/MacOS/iiire -AppleLanguages '(en)'`
 
 ## しくみ
 
@@ -137,7 +137,7 @@ git add vendor/speech.cpp
 
 ```sh
 say -v Kyoko "音声入力のテストです。" -o /tmp/t.aiff && afconvert -f WAVE -d LEI16@48000 /tmp/t.aiff /tmp/t.wav
-build/Koe.app/Contents/MacOS/Koe --transcribe /tmp/t.wav [MODEL]
+build/iiire.app/Contents/MacOS/iiire --transcribe /tmp/t.wav [MODEL]
 ```
 
 ショートカットの記録、アプリごとのルール、モデル一覧の読み取り、クリップボードの目印は `make test` で確かめる。
@@ -145,7 +145,7 @@ build/Koe.app/Contents/MacOS/Koe --transcribe /tmp/t.wav [MODEL]
 設定画面は、起動時に開いたり、各タブを PNG に書き出したりできる。書き出しはアプリが自分のウィンドウを描くので、画面収録の許可は要らない。
 
 ```sh
-build/Koe.app/Contents/MacOS/Koe --open-settings
-build/Koe.app/Contents/MacOS/Koe --snapshot-settings /tmp/shots -AppleLanguages '(en)'   # settings-<tab>.png を書き出して終了する
-build/Koe.app/Contents/MacOS/Koe --snapshot-hud /tmp/shots   # HUD の各表示を hud-<状態>-<light|dark>.png に書き出す
+build/iiire.app/Contents/MacOS/iiire --open-settings
+build/iiire.app/Contents/MacOS/iiire --snapshot-settings /tmp/shots -AppleLanguages '(en)'   # settings-<tab>.png を書き出して終了する
+build/iiire.app/Contents/MacOS/iiire --snapshot-hud /tmp/shots   # HUD の各表示を hud-<状態>-<light|dark>.png に書き出す
 ```

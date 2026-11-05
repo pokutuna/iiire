@@ -10,13 +10,13 @@
         <string>ja</string>
     </array>
     <key>CFBundleIdentifier</key>
-    <string>io.github.pokutuna.koe</string>
+    <string>io.github.pokutuna.iiire</string>
     <key>CFBundleName</key>
-    <string>Koe</string>
+    <string>iiire</string>
     <key>CFBundleDisplayName</key>
-    <string>Koe</string>
+    <string>iiire</string>
     <key>CFBundleExecutable</key>
-    <string>Koe</string>
+    <string>iiire</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -28,8 +28,8 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Koe uses the microphone to transcribe what you say.</string>
+    <string>iiire uses the microphone to transcribe what you say.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Koe asks System Events to press ⌘V when a paste method uses AppleScript.</string>
+    <string>iiire asks System Events to press ⌘V when a paste method uses AppleScript.</string>
 </dict>
 </plist>

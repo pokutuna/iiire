@@ -32,14 +32,14 @@
 "Parakeet TDT-CTC ja (ja, short utterances, 0.66 GB)" = "Parakeet TDT-CTC ja (ja, 短い発話, 0.66 GB)";
 "Path (automatic if empty)" = "パス (空なら自動)";
 "Permissions" = "権限";
-"Koe needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
+"iiire needs these permissions to record from the microphone and type at the cursor." = "マイクで録音してカーソル位置に入力するには、次の許可が必要です。";
 "Play sound effects" = "効果音を鳴らす";
 "Preparing %@…" = "%@ を準備中…";
 "Press to start or stop. Hold to record while held. Esc cancels." = "短く押すと開始・停止、長押しすると押している間だけ録音します。Esc で取り消せます。";
 "Press keys…" = "キーを押す…";
 "Press the keys to use (Esc to cancel)" = "登録するキーを押してください (Esc で取り消し)";
 "Preview" = "試聴";
-"Quit Koe" = "Koe を終了";
+"Quit iiire" = "iiire を終了";
 "Qwen3-ASR 0.6B (multilingual, 0.84 GB)" = "Qwen3-ASR 0.6B (多言語, 0.84 GB)";
 "Qwen3-ASR 1.7B (multilingual, 2.18 GB)" = "Qwen3-ASR 1.7B (多言語, 2.18 GB)";
 "Ready" = "準備完了";
@@ -88,8 +88,8 @@
 "Worker" = "worker";
 "A new path takes effect after you restart the worker." = "パスを変えたら、worker を再起動すると反映されます。";
 "Downloading %@: %@ (%@ / %@)" = "%@ をダウンロード中: %@ (%@ / %@)";
-"Koe cannot record." = "録音できません。";
-"Koe cannot type at the cursor, and a modifier key alone cannot be the hotkey." = "カーソル位置に入力できず、修飾キー単独のホットキーも使えません。";
+"iiire cannot record." = "録音できません。";
+"iiire cannot type at the cursor, and a modifier key alone cannot be the hotkey." = "カーソル位置に入力できず、修飾キー単独のホットキーも使えません。";
 "Not allowed. %@" = "許可されていません。%@";
 
 /* ペーストの送り方、アプリごとのルール */

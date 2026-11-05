@@ -2,13 +2,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "Koe",
+    name: "iiire",
     platforms: [.macOS(.v14)],
     targets: [
         .executableTarget(
-            name: "Koe",
-            path: "Sources/Koe"
+            name: "iiire",
+            path: "Sources/iiire"
         ),
-        .testTarget(name: "KoeTests", dependencies: ["Koe"], path: "Tests/KoeTests"),
+        .testTarget(name: "iiireTests", dependencies: ["iiire"], path: "Tests/iiireTests"),
     ]
 )

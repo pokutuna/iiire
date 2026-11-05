@@ -1,5 +1,5 @@
 import XCTest
-@testable import Koe
+@testable import iiire
 
 /// `speech models --json` の結果から、既定の type のファイルの状態を取り出す
 final class ModelCatalogTests: XCTestCase {

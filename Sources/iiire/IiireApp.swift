@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct KoeApp: App {
+struct IiireApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
@@ -108,7 +108,7 @@ private struct MenuContent: View {
             openSettings()
         }
         .keyboardShortcut(",")
-        Button("Quit Koe") { NSApp.terminate(nil) }
+        Button("Quit iiire") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 

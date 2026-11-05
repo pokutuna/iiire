@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Koe
+@testable import iiire
 
 /// クリップボードに置く目印を確かめる。一般のクリップボードを汚さないよう、専用のものを使う
 @MainActor
@@ -8,7 +8,7 @@ final class TextInserterTests: XCTestCase {
     private var pb: NSPasteboard!
 
     override func setUp() async throws {
-        pb = NSPasteboard(name: NSPasteboard.Name("koe-test-\(UUID().uuidString)"))
+        pb = NSPasteboard(name: NSPasteboard.Name("iiire-test-\(UUID().uuidString)"))
     }
 
     override func tearDown() async throws {
