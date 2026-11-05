@@ -152,7 +152,6 @@ enum SettingsKey {
     static let language = "language"
     static let hint = "hint"
     static let shortcut = "shortcut"
-    static let legacyHotkey = "hotkey"
     static let inputDeviceUID = "inputDeviceUID"
     static let outputMethod = "outputMethod"
     static let soundCue = "soundCue"
@@ -197,26 +196,7 @@ enum Defaults {
     static var model: RecognitionModel { .find(string(SettingsKey.model)) }
     static var language: String { string(SettingsKey.language) }
     static var hint: String { string(SettingsKey.hint) }
-    static var shortcut: Shortcut {
-        let d = UserDefaults.standard
-        if let s = Shortcut.decode(d.string(forKey: SettingsKey.shortcut) ?? "") { return s }
-        // 以前の版はホットキーをプリセット名 (rightOption など) で保存していた。その設定を引き継ぐ
-        if let legacy = d.string(forKey: SettingsKey.legacyHotkey), let s = legacyShortcut(legacy) { return s }
-        return .default
-    }
-
-    private static func legacyShortcut(_ name: String) -> Shortcut? {
-        switch name {
-        case "rightOption": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightOption), modifiers: 0, keyLabel: "")
-        case "rightCommand": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightCommand), modifiers: 0, keyLabel: "")
-        case "rightControl": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_RightControl), modifiers: 0, keyLabel: "")
-        case "fn": Shortcut(kind: .modifierOnly, keyCode: UInt16(kVK_Function), modifiers: 0, keyLabel: "")
-        case "optionSpace": Shortcut(kind: .combo, keyCode: UInt16(kVK_Space), modifiers: NSEvent.ModifierFlags.option.rawValue, keyLabel: "Space")
-        case "controlOptionSpace": Shortcut(kind: .combo, keyCode: UInt16(kVK_Space), modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue, keyLabel: "Space")
-        case "f5": Shortcut(kind: .combo, keyCode: UInt16(kVK_F5), modifiers: 0, keyLabel: "F5")
-        default: nil
-        }
-    }
+    static var shortcut: Shortcut { Shortcut.decode(string(SettingsKey.shortcut)) ?? .default }
     static var inputDeviceUID: String { string(SettingsKey.inputDeviceUID) }
     static var soundCue: Bool { UserDefaults.standard.bool(forKey: SettingsKey.soundCue) }
     static var startSound: String { string(SettingsKey.startSound) }

@@ -1,86 +1,120 @@
-<p align="center"><img src="Resources/AppIcon.svg" width="128" alt=""></p>
+<img src="Resources/AppIcon.svg" width="96" alt="iiire">
 
 # iiire
 
-iiire は、話した内容を文字にして、カーソルの位置に入力する macOS のメニューバーアプリです。
-
-書き起こしには [speech.cpp](https://github.com/nyosegawa/speech.cpp) を使用します。音声は Mac 上で処理し、外部には送信しません。
-
+ホットキーを押して話すだけで、カーソル位置にテキストを入力する macOS メニューバーアプリです。
+書き起こしには [speech.cpp](https://github.com/nyosegawa/speech.cpp) を使用し、音声はすべて Mac 上で処理されます（外部への送信はありません）。
 
 ## インストール
 
-macOS 14 以降を搭載した Apple silicon の Mac に対応しています。配布用のアプリはまだないため、ソースからビルドします。ビルドには Command Line Tools と CMake が必要です。Command Line Tools は `xcode-select --install`、CMake は `brew install cmake` でインストールできます。Xcode がインストール済みの場合は、Command Line Tools を別途インストールする必要はありません。
+### 必要な環境
+
+- macOS 14 以降（Apple silicon）
+- Command Line Tools（または Xcode）: `xcode-select --install`
+- CMake: `brew install cmake`
+
+### 1. ビルドしてインストール
+
+配布バイナリはないため、ソースからビルドして `~/Applications/iiire.app` に配置します。
 
 ```sh
 git clone --recurse-submodules https://github.com/pokutuna/iiire.git
 cd iiire
-make signing-identity   # 初回のみ
+make signing-identity   # 初回のみ: 再ビルド時に権限が外れないよう自己署名証明書を作成
+make install            # ~/Applications/iiire.app にビルド・インストール
+open ~/Applications/iiire.app
+```
+
+### 2. 権限を許可する（初回のみ）
+
+起動するとメニューバーにアイコンが表示されます。アイコンから「**設定…**」を開き、「一般」タブの下部にある 2 つの権限を許可してください。
+
+- **マイク**: 音声の録音に必要です
+- **アクセシビリティ**: カーソル位置へのテキスト入力や、修飾キー単独のホットキー検知に必要です
+
+初回起動時には、音声認識モデル（約 0.66 GB）が Hugging Face から `~/Library/Caches/speech.cpp` へ自動でダウンロードされます。
+
+### 更新するとき
+
+```sh
+git pull --recurse-submodules
 make install
 open ~/Applications/iiire.app
 ```
 
-`make install` はアプリをビルドし、`~/Applications/iiire.app` にインストールします。
-
-初回に実行する `make signing-identity` は、アプリの署名に使う自己署名証明書をログインキーチェーンに作成します。証明書がない場合はアドホック署名が使われ、アプリを再ビルドするたびにアクセシビリティの許可が外れます。
-
-録音にはマイクへのアクセス、テキストの入力にはアクセシビリティの許可が必要です。ペーストに AppleScript を使う設定では、System Events を操作する許可も必要です。
-
 ## 使い方
 
-テキストを入力したい場所にカーソルを置き、ホットキーを押して話します。既定のホットキーは右 ⌥ キーです。
+テキストを入力したい場所にカーソルを置き、ホットキー（初期設定は **右 ⌥**）を押して話します。
 
 | 操作 | 動作 |
 |---|---|
-| ホットキーを短く押す | 録音を開始する。もう一度押すと録音を終了し、書き起こす |
-| ホットキーを長押しする | 押している間だけ録音し、離すと書き起こす |
-| Esc を押す | 録音または書き起こしを取り消す |
+| **ホットキーを短く押す** | 録音を開始。もう一度押すと録音を終了して文字を入力 |
+| **ホットキーを長押しする** | 押している間だけ録音し、離すと文字を入力 |
+| **Esc を押す** | 録音または書き起こしをキャンセル |
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/hud-recording-dark.png">
-    <img src="docs/hud-recording-light.png" width="266" alt="録音中に画面の下に出る表示。波形、経過時間、マイク名">
-  </picture>
-</p>
+録音中は画面下部に波形と経過時間が表示されます。
 
-ホットキー、マイク、書き起こしに使うモデル、テキストの出力方法は、メニューバーのアイコンから開く設定画面で変更できます。
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/hud-recording-dark.png">
+  <img src="docs/hud-recording-light.png" width="266" alt="録音中の HUD 表示">
+</picture>
 
-<p align="center"><img src="docs/settings.png" width="500" alt="設定画面の一般タブ"></p>
+## 設定
 
-モデルは初めて使用するときに Hugging Face からダウンロードされ、`~/Library/Caches/speech.cpp` に保存されます。
+メニューバーアイコンの「**設定…**」（`⌘,`）から変更できます。
 
-## ログ
+<img src="docs/settings.png" width="500" alt="設定画面">
 
-エラーなどの詳細は `~/Library/Logs/iiire.log` に記録されます。通常のビルドでは、書き起こしたテキストはログに記録されません。開発用のデバッグビルド（`swift build`）では、確認のためにテキストも記録されます。
+- **ホットキー・マイク（一般）**
+  - 右 ⌥・右 ⌘・Fn などの修飾キー単独、または `⌥Space` などのキーの組み合わせをホットキーに登録できます。
+- **認識モデル・語彙登録（認識）**
+  - 日本語の入力には、高速で語彙登録にも対応している **Haas ja v1.0**（既定）がおすすめです。他のモデルも選択時に自動でダウンロードされます。
+    - `Haas ja v1.0`（**おすすめ・既定** / 日本語・高速 / 固有名詞の「表記=読み」登録に対応）
+    - `ReazonSpeech v2`（日本語）
+    - `Parakeet TDT-CTC ja`（日本語・短い発話向け）
+    - `Qwen3-ASR 0.6B` / `1.7B`（多言語 / ヒント・プロンプト指定に対応）
+- **出力方法・アプリ別ルール（出力・アプリ）**
+  - 「カーソル位置に入力（元のクリップボードを復元）」「入力してクリップボードにも残す」「クリップボードにコピーのみ」から選択できます。
+  - ペースト時のキー送信方法を変更できるほか、ターミナルなど `⌘V` 以外でペーストするアプリごとに個別のルール（`⌃Y` を送るなど）を設定できます。
+
+## トラブルシューティング
+
+- **文字が入力されない**: 「設定…」>「一般」でアクセシビリティが「許可済み」になっているか確認してください。
+- **Dvorak 等のカスタム配列で `⌘V` が効かない**: 「設定…」>「出力」の「ペーストの送り方」を「AppleScript (System Events) で ⌘V」または「キーを指定」に変更してください。
+- **前のクリップボードの内容が貼られてしまう**: 「設定…」>「出力」の「ペーストのタイミング」で「クリップボードを戻すまで」の時間を少し長くしてください。
+- **ログの確認**: エラーの詳細は `~/Library/Logs/iiire.log` に記録されます（通常のリリースビルドでは書き起こしたテキスト自体は記録されません）。
 
 ## 開発
 
 | コマンド | 動作 |
 |---|---|
+| `make app` | `build/iiire.app` をビルドする |
 | `make run` | アプリをビルドして起動する |
-| `make test` | テストを実行する。XCTest を使うため Xcode が必要 |
+| `make test` | テストを実行する（XCTest を使うため Xcode が必要） |
 | `make clean` | アプリと Swift のビルド結果を削除する |
-| `make distclean` | speech.cpp を含むすべてのビルド結果を削除する |
+| `make distclean` | `speech.cpp` を含むすべてのビルド結果を削除する |
 
-画面の文字列はソースに英語で記述し、日本語訳を `Resources/ja.lproj` に配置しています。アプリのアイコンは、ビルド時に `Resources/AppIcon.svg` から生成します。メニューバーのアイコンは、同じ図形を `Sources/iiire/MenuBarGlyph.swift` で描画しています。
+- UI の文字列はソースコードに英語で記述し、日本語訳を `Resources/ja.lproj/Localizable.strings` に配置しています。
+- アプリアイコンはビルド時に `Resources/AppIcon.svg` から生成し、メニューバーアイコンは同じ図形を `Sources/iiire/MenuBarGlyph.swift` で描画しています。
+- デバッグビルド（`swift build`）では、動作確認のため書き起こしたテキストもログに記録されます。
 
-### speech.cpp の更新
-
-speech.cpp は `vendor/speech.cpp` に Git submodule として配置し、バージョンを固定しています。ビルドした `speech` コマンドはアプリに同梱します。バージョンを更新するには、目的のバージョンをチェックアウトし、speech.cpp 自身の submodule も更新してから、その変更を記録します。
-
-```sh
-cd vendor/speech.cpp
-git checkout <版>
-git submodule update --init --recursive
-cd ../..
-git add vendor/speech.cpp
-```
-
-### 動作確認用のコマンド
-
-ビルドしたアプリは、マイクを使わずに音声ファイルを書き起こすことや、録音中などの画面表示を PNG に書き出すこともできます。
+### 動作確認用の CLI オプション
 
 ```sh
 APP=build/iiire.app/Contents/MacOS/iiire
-$APP --transcribe /tmp/t.wav [MODEL]
-$APP --snapshot-hud /tmp/shots
+$APP --transcribe /tmp/sample.wav [MODEL]   # 音声ファイルを書き起こす
+$APP --snapshot-settings /tmp/shots         # 設定画面の各タブを PNG に書き出す
+$APP --snapshot-hud /tmp/shots              # HUD の各状態を PNG に書き出す
+```
+
+### speech.cpp の更新
+
+`speech.cpp` は `vendor/speech.cpp` に Git submodule として配置し、ビルドした `speech` バイナリをアプリに同梱しています。
+
+```sh
+cd vendor/speech.cpp
+git checkout <バージョン>
+git submodule update --init --recursive
+cd ../..
+git add vendor/speech.cpp
 ```

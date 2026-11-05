@@ -33,20 +33,14 @@ final class SpeechWorker {
     private var nextID = 0
 
     /// 実行する `speech` コマンドのパスを決める。
-    /// 設定 > .app 同梱 > ~/.local/bin > Homebrew の順。
+    /// 設定 > 環境変数 IIIRE_SPEECH > .app に同梱したもの の順。
     static func resolveExecutable() -> String? {
-        let fm = FileManager.default
         var candidates: [String] = []
         let configured = Defaults.speechPath.trimmingCharacters(in: .whitespaces)
         if !configured.isEmpty { candidates.append((configured as NSString).expandingTildeInPath) }
         if let env = ProcessInfo.processInfo.environment["IIIRE_SPEECH"] { candidates.append(env) }
         if let bundled = Bundle.main.url(forAuxiliaryExecutable: "speech")?.path { candidates.append(bundled) }
-        candidates += [
-            NSHomeDirectory() + "/.local/bin/speech",
-            "/opt/homebrew/bin/speech",
-            "/usr/local/bin/speech",
-        ]
-        return candidates.first { fm.isExecutableFile(atPath: $0) }
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     func start(model: String) {

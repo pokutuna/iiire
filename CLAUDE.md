@@ -43,5 +43,5 @@ $APP --snapshot-hud DIR         # PNG of every HUD state, light and dark
 - `AudioRecorder` uses CoreAudio AUHAL, not AVAudioEngine, because AVAudioEngine stops when another app reconfigures the mic.
 - `SpeechWorker` keeps a `speech worker MODEL` child process and talks JSON Lines to it ([protocol](https://github.com/nyosegawa/speech.cpp/blob/main/docs/worker.md)). The executable lookup order is at `SpeechWorker.swift:37`.
 - `TextInserter` pastes through the clipboard and then restores it. Its own key events carry `eventMarker` (`TextInserter.swift:91`), so the hotkey monitor ignores them.
-- Settings are in `UserDefaults`. Keys and defaults are in `Settings.swift:150-200`. Per-app output overrides come from `AppRule` / `OutputConfig.resolve`. `Defaults` migrates legacy stored values on read, so keep that code.
+- Settings are in `UserDefaults`. Keys and defaults are in `Settings.swift:150-200`. Per-app output overrides come from `AppRule` / `OutputConfig.resolve`.
 - Without the "iiire Local Signing" cert from `make signing-identity`, builds are ad-hoc signed and macOS drops the Accessibility permission on every rebuild.
