@@ -66,15 +66,15 @@ defaults delete io.github.pokutuna.iiire     # 設定
 録音中は画面下部にオーバーレイが表示され、波形、経過時間、使用中のマイクを確認できます。書き起こし中や入力の結果、エラーもここに表示されます。
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/hud-recording-dark.png">
-  <img src="docs/hud-recording-light.png" width="266" alt="録音中のオーバーレイ">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hud-recording-dark.png">
+  <img src="docs/images/hud-recording-light.png" width="266" alt="録音中のオーバーレイ">
 </picture>
 
 ## 設定
 
 メニューバーアイコンの「**設定…**」（`⌘,`）から変更できます。
 
-<img src="docs/settings.png" width="500" alt="設定画面">
+<img src="docs/images/settings.png" width="500" alt="設定画面">
 
 - **ホットキー・マイク（一般）**
   - 右 ⌥・右 ⌘・Fn などの修飾キー単独、または `⌥Space` などのキーの組み合わせをホットキーに登録できます。
@@ -87,6 +87,8 @@ defaults delete io.github.pokutuna.iiire     # 設定
 - **出力方法・アプリ別ルール（出力・アプリ）**
   - 「カーソル位置に入力（元のクリップボードを復元）」「入力してクリップボードにも残す」「クリップボードにコピーのみ」から選択できます。
   - ペースト時のキー送信方法を変更できるほか、独自のキーバインドを設定したエディタなど、`⌘V` 以外でペーストするアプリごとに個別のルール（`⌃Y` を送るなど）を設定できます。
+
+    <img src="docs/images/settings-apps.png" width="500" alt="アプリ別ルールの設定画面（VS Code で ⌃Y を送る例）">
 
 ## トラブルシューティング
 
