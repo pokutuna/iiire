@@ -259,7 +259,7 @@ private struct RecordingContent: View {
 }
 
 private struct PulsingDot: View {
-    @State private var dim = false
+    @ViewState private var dim = false
 
     var body: some View {
         Circle()

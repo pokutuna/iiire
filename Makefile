@@ -10,7 +10,7 @@ INSTALL_DIR  ?= /Applications
 # GGML_NATIVE を切ると、ビルドした Mac の CPU に依存する最適化をしない
 SPEECH_CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=Release -DGGML_OPENMP=OFF -DGGML_NATIVE=OFF
 
-.PHONY: signing-identity app run install test update-speech speech check-tools clean distclean
+.PHONY: signing-identity app run install test check-clt update-speech speech check-tools clean distclean
 .DEFAULT_GOAL := app
 
 # 初回に一度だけ。再ビルドしてもアクセシビリティの許可が外れないよう、署名用の証明書を作る
@@ -34,6 +34,13 @@ install: app
 
 test:
 	swift test
+
+# Command Line Tools だけでもビルドできるか確かめる。
+# Xcode にしかないマクロ (SwiftUIMacros など) を使うと失敗する。@State もその一つなので @ViewState を使う。
+# swift-frontend を直接呼ぶと、Xcode の platform 側にあるプラグインが読み込まれない
+check-clt:
+	xcrun swift-frontend -frontend -typecheck -sdk "$$(xcrun --show-sdk-path)" \
+		-target arm64-apple-macos14 -module-name iiire -parse-as-library Sources/iiire/*.swift
 
 # speech.cpp を REF (タグやコミット) のバージョンに更新する。REF を省くと最新のタグ。
 # 更新したら git add までするので、続けてコミットする

@@ -17,5 +17,6 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - run: make check-clt
       - run: make test
       - run: make app

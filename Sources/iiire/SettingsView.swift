@@ -45,17 +45,17 @@ private struct GeneralSettings: View {
     @EnvironmentObject var state: AppState
 
     @AppStorage(SettingsKey.shortcut) private var shortcutJSON = ""
-    @State private var shortcutError: String?
+    @ViewState private var shortcutError: String?
     @AppStorage(SettingsKey.inputDeviceUID) private var inputDeviceUID = ""
     @AppStorage(SettingsKey.soundCue) private var soundCue = Defaults.Initial.soundCue
     @AppStorage(SettingsKey.startSound) private var startSound = Defaults.Initial.startSound
     @AppStorage(SettingsKey.doneSound) private var doneSound = Defaults.Initial.doneSound
     @AppStorage(SettingsKey.cancelSound) private var cancelSound = Defaults.Initial.cancelSound
 
-    @State private var devices: [AudioInputDevice] = []
-    @State private var soundNames: [String] = []
-    @State private var axTrusted = TextInserter.isTrusted
-    @State private var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    @ViewState private var devices: [AudioInputDevice] = []
+    @ViewState private var soundNames: [String] = []
+    @ViewState private var axTrusted = TextInserter.isTrusted
+    @ViewState private var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
 
     var body: some View {
         Form {
@@ -380,7 +380,7 @@ private struct AppRulesSettings: View {
     @AppStorage(SettingsKey.pasteKeystroke) private var pasteKeystroke = Defaults.Initial.pasteKeystroke
     @AppStorage(SettingsKey.pasteCustomKey) private var pasteCustomKey = ""
     @AppStorage(SettingsKey.appRules) private var appRulesJSON = Defaults.Initial.appRules
-    @State private var runningApps: [RunningApp] = []
+    @ViewState private var runningApps: [RunningApp] = []
 
     /// 「アプリを追加」に並べる起動中のアプリ。アイコンは一覧を作るときに読む
     struct RunningApp: Identifiable {
@@ -522,7 +522,7 @@ private struct CustomKeyField: View {
     /// キーを記録していないときの説明
     let fallbackNote: LocalizedStringKey
     let onRecordingChange: (Bool) -> Void
-    @State private var problem: String?
+    @ViewState private var problem: String?
 
     var body: some View {
         LabeledContent("Key to send") {
