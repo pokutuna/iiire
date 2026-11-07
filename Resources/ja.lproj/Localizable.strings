@@ -7,6 +7,9 @@
 "Cannot start the speech worker: %@" = "speech worker を起動できません: %@";
 "Change…" = "変更…";
 "Combine with ⌃, ⌥, ⇧ or ⌘ (F keys work on their own)." = "⌃、⌥、⇧、⌘ のいずれかと組み合わせてください (F キーは単独でも使えます)。";
+"Clear" = "消去";
+"Clear History…" = "履歴を消去…";
+"Clear all history?" = "履歴をすべて消去しますか?";
 "Copy to clipboard only" = "クリップボードにコピーするだけ";
 "Eisu" = "英数";
 "English" = "英語";
@@ -126,3 +129,4 @@
 "Cancelling… Press Esc again to stop now." = "取り消し中… もう一度 Esc を押すとすぐに止めます";
 "⇧ alone takes over typing. Add ⌃, ⌥ or ⌘." = "⇧ だけだと大文字が打てなくなります。⌃、⌥、⌘ のいずれかを加えてください。";
 "Disconnected Microphone" = "接続されていないマイク";
+"This action can't be undone." = "この操作はもとに戻せません。";

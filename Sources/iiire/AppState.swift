@@ -201,6 +201,10 @@ final class AppState: ObservableObject {
         TextInserter.put(text, on: .general, transient: false)
     }
 
+    func clearHistory() {
+        history.removeAll()
+    }
+
     // MARK: - ホットキー
 
     private func hotkeyPressed(at time: TimeInterval) {

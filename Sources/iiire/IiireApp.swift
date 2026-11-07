@@ -101,6 +101,7 @@ private struct MenuContent: View {
                     state.copyToClipboard(text)
                 }
             }
+            Button("Clear History…") { confirmClearHistory() }
         }
 
         Divider()
@@ -111,6 +112,20 @@ private struct MenuContent: View {
         .keyboardShortcut(",")
         Button("Quit iiire") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
+    }
+
+    /// 履歴は戻せないので、消す前に確認する
+    private func confirmClearHistory() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Clear all history?")
+        alert.informativeText = String(localized: "This action can't be undone.")
+        alert.addButton(withTitle: String(localized: "Clear"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.buttons[0].hasDestructiveAction = true
+        if alert.runModal() == .alertFirstButtonReturn {
+            state.clearHistory()
+        }
     }
 
     private var statusText: String {
