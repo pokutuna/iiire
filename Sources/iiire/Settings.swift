@@ -155,6 +155,7 @@ enum SettingsKey {
     static let inputDeviceUID = "inputDeviceUID"
     static let outputMethod = "outputMethod"
     static let soundCue = "soundCue"
+    static let hudPosition = "hudPosition"
     static let startSound = "startSound"
     static let doneSound = "doneSound"
     static let cancelSound = "cancelSound"
@@ -173,6 +174,7 @@ enum Defaults {
         static let language = "auto"
         static let outputMethod = OutputMethod.paste.rawValue
         static let soundCue = true
+        static let hudPosition = CGPoint(x: 0.5, y: 0.9)
         static let startSound = "Funk"
         static let doneSound = "Glass"
         static let cancelSound = "Bottle"
@@ -214,6 +216,21 @@ enum Defaults {
     static var shortcut: Shortcut { Shortcut.decode(string(SettingsKey.shortcut)) ?? .default }
     static var inputDeviceUID: String { string(SettingsKey.inputDeviceUID) }
     static var soundCue: Bool { UserDefaults.standard.bool(forKey: SettingsKey.soundCue) }
+    /// 吹き出しの下辺中央を、画面の左上からの割合で保存する。未設定なら下部中央に出す
+    static var hudPosition: CGPoint? {
+        get {
+            guard let values = UserDefaults.standard.array(forKey: SettingsKey.hudPosition) as? [Double],
+                  values.count == 2, values.allSatisfy({ (0...1).contains($0) }) else { return nil }
+            return CGPoint(x: values[0], y: values[1])
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set([Double(newValue.x), Double(newValue.y)], forKey: SettingsKey.hudPosition)
+            } else {
+                UserDefaults.standard.removeObject(forKey: SettingsKey.hudPosition)
+            }
+        }
+    }
     static var startSound: String { string(SettingsKey.startSound) }
     static var doneSound: String { string(SettingsKey.doneSound) }
     static var cancelSound: String { string(SettingsKey.cancelSound) }

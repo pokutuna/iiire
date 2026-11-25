@@ -28,15 +28,21 @@ final class HUDModel: ObservableObject {
     }
 }
 
-/// 録音中・書き起こし中に画面下部に出す小さな表示。フォーカスは奪わず、クリックも受けない。
+/// 録音中・書き起こし中に出す小さな表示。フォーカスは奪わず、録音中だけドラッグできる。
 /// パネルの大きさは固定し、中身の大きさの変化は SwiftUI のアニメーションで見せる
 @MainActor
 final class HUDController {
     static let panelSize = NSSize(width: 560, height: 180)
+    static let bottomPadding: CGFloat = 24
 
     private unowned let state: AppState // AppState が持つ
     private let model = HUDModel()
     private var panel: NSPanel?
+    private var screen: NSScreen?
+    private var bubbleSize: CGSize = .zero
+    /// 吹き出しの下辺中央。画面の左上からの割合で保持する
+    private var draggedPosition: CGPoint?
+    private var dragStart: CGPoint?
     /// 結果やエラーを出している間は、待機中になっても消さない
     private var noticeTask: Task<Void, Never>?
     /// 書き起こしが終わってから入力の結果が出るまでの間、今の表示を残す
@@ -108,8 +114,15 @@ final class HUDController {
         orderOutTask?.cancel()
         let panel = self.panel ?? makePanel()
         if !panel.isVisible {
-            place(panel)
+            screen = NSScreen.main
+            place()
             panel.orderFrontRegardless()
+        }
+        if case .recording = content {
+            panel.ignoresMouseEvents = false
+        } else {
+            finishDrag()
+            panel.ignoresMouseEvents = true
         }
         guard model.content != content else { return }
         withAnimation(.spring(duration: 0.3, bounce: 0.15)) { model.content = content }
@@ -117,6 +130,8 @@ final class HUDController {
 
     private func hide() {
         guard model.content != nil else { return }
+        finishDrag()
+        panel?.ignoresMouseEvents = true
         withAnimation(.easeOut(duration: 0.2)) { model.content = nil }
         orderOutTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
@@ -125,12 +140,43 @@ final class HUDController {
         }
     }
 
-    /// 作業中の画面 (キーウィンドウのある画面) の下部中央
-    private func place(_ panel: NSPanel) {
-        guard let screen = NSScreen.main else { return }
-        let f = screen.visibleFrame
-        let size = Self.panelSize
-        panel.setFrame(NSRect(x: f.midX - size.width / 2, y: f.minY + 24, width: size.width, height: size.height), display: false)
+    func updatePosition() {
+        draggedPosition = nil
+        dragStart = nil
+        place()
+    }
+
+    private func place() {
+        guard let frame = screen?.visibleFrame, let panel else { return }
+        let position = draggedPosition ?? state.hudPosition ?? Defaults.Initial.hudPosition
+        let anchor = CGPoint(x: frame.minX + position.x * frame.width, y: frame.maxY - position.y * frame.height)
+        move(panel, to: anchor, in: frame)
+    }
+
+    /// 透明な余白を除き、吹き出し全体が画面に収まるようにする
+    private func move(_ panel: NSPanel, to anchor: CGPoint, in frame: CGRect) {
+        let halfWidth = min(bubbleSize.width, frame.width) / 2
+        let height = min(bubbleSize.height, frame.height)
+        let x = anchor.x.clamped(to: (frame.minX + halfWidth)...(frame.maxX - halfWidth))
+        let y = anchor.y.clamped(to: frame.minY...(frame.maxY - height))
+        panel.setFrameOrigin(CGPoint(x: x - Self.panelSize.width / 2, y: y - Self.bottomPadding))
+    }
+
+    private func drag(by delta: CGSize, ended: Bool) {
+        guard state.phase == .recording, let frame = screen?.visibleFrame, let panel,
+              frame.width > 0, frame.height > 0 else { return }
+        let current = CGPoint(x: panel.frame.midX, y: panel.frame.minY + Self.bottomPadding)
+        let start = dragStart ?? current
+        dragStart = start
+        move(panel, to: CGPoint(x: start.x + delta.width, y: start.y + delta.height), in: frame)
+        let anchor = CGPoint(x: panel.frame.midX, y: panel.frame.minY + Self.bottomPadding)
+        draggedPosition = CGPoint(x: (anchor.x - frame.minX) / frame.width, y: (frame.maxY - anchor.y) / frame.height)
+        if ended { finishDrag() }
+    }
+
+    private func finishDrag() {
+        guard let draggedPosition else { return }
+        state.setHUDPosition(draggedPosition)
     }
 
     private func makePanel() -> NSPanel {
@@ -143,7 +189,13 @@ final class HUDController {
         p.hasShadow = false // 影は中身に付ける (パネルは透明な余白を含むため)
         p.ignoresMouseEvents = true
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        p.contentView = NSHostingView(rootView: HUDView(model: model))
+        p.contentView = NSHostingView(rootView: HUDView(model: model, onDrag: { [weak self] delta, ended in
+            self?.drag(by: delta, ended: ended)
+        }, onBubbleSizeChange: { [weak self] size in
+            guard let self else { return }
+            bubbleSize = size
+            place()
+        }))
         panel = p
         return p
     }
@@ -182,16 +234,24 @@ private struct HUDView: View {
     /// 画面の確認用。書き出しでは背後のぼかしが描かれず濁った灰色になるので、
     /// ぼかしの代わりに不透明な背景色で塗り、まわりは透明にする
     var snapshot = false
+    var onDrag: ((CGSize, Bool) -> Void)?
+    var onBubbleSizeChange: ((CGSize) -> Void)?
 
     var body: some View {
         VStack {
             Spacer(minLength: 0)
             if let content = model.content {
                 bubble(content)
+                    .overlay {
+                        if case .recording = content, let onDrag {
+                            HUDDragArea(onDrag: onDrag)
+                        }
+                    }
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { onBubbleSizeChange?($0) }
                     .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, 24)
+        .padding(.bottom, HUDController.bottomPadding)
         .frame(width: HUDController.panelSize.width, height: HUDController.panelSize.height)
     }
 
@@ -227,6 +287,51 @@ private struct HUDView: View {
         }
         .fixedSize()
         .animation(.spring(duration: 0.3, bounce: 0.15), value: content)
+    }
+}
+
+/// パネル自体が動くので、ドラッグ量は画面座標で測る
+private struct HUDDragArea: NSViewRepresentable {
+    let onDrag: (CGSize, Bool) -> Void
+
+    func makeNSView(context: Context) -> DragView { DragView() }
+
+    func updateNSView(_ view: DragView, context: Context) {
+        view.onDrag = onDrag
+    }
+
+    final class DragView: NSView {
+        var onDrag: ((CGSize, Bool) -> Void)?
+        private var start: CGPoint?
+        private var dragged = false
+
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override var mouseDownCanMoveWindow: Bool { false }
+
+        override func resetCursorRects() {
+            addCursorRect(bounds, cursor: .openHand)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            start = NSEvent.mouseLocation
+            dragged = false
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            dragged = true
+            move(ended: false)
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            if dragged { move(ended: true) }
+            start = nil
+        }
+
+        private func move(ended: Bool) {
+            guard let start else { return }
+            let point = NSEvent.mouseLocation
+            onDrag?(CGSize(width: point.x - start.x, height: point.y - start.y), ended)
+        }
     }
 }
 

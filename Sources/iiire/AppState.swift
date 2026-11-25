@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     @Published private(set) var workerState: SpeechWorker.State = .stopped
     @Published private(set) var history: [String] = []
     @Published private(set) var lastError: String?
+    @Published private(set) var hudPosition = Defaults.hudPosition
     /// モデル名 → ファイルを取得済みか、どこまで取得したか
     @Published private(set) var modelFiles: [String: ModelFile] = [:]
     /// 最後に始めたモデル一覧の取得。取得は順に行い、後に始めたものの結果で上書きする
@@ -57,6 +58,12 @@ final class AppState: ObservableObject {
         hotkeys.onPress = { [weak self] in self?.hotkeyPressed(at: $0) }
         hotkeys.onRelease = { [weak self] in self?.hotkeyReleased(at: $0) }
         hotkeys.onInterrupted = { [weak self] in self?.hotkeyInterrupted() }
+    }
+
+    func setHUDPosition(_ position: CGPoint?) {
+        Defaults.hudPosition = position
+        hudPosition = position
+        hud.updatePosition()
     }
 
     func launch() {

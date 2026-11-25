@@ -57,6 +57,10 @@ private struct GeneralSettings: View {
     @ViewState private var axTrusted = TextInserter.isTrusted
     @ViewState private var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
 
+    private var hudPosition: CGPoint {
+        state.hudPosition ?? Defaults.Initial.hudPosition
+    }
+
     var body: some View {
         Form {
             Section {
@@ -89,6 +93,24 @@ private struct GeneralSettings: View {
                 }
             } footer: {
                 Text("Press to start or stop. Hold to record while held. Esc cancels.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                LabeledContent("Recording Overlay") {
+                    HStack(spacing: 12) {
+                        hudPositionField("Horizontal", axis: \.x)
+                        hudPositionField("Vertical", axis: \.y)
+                    }
+                }
+                HStack {
+                    Spacer()
+                    Button("Center on Screen") { state.setHUDPosition(CGPoint(x: 0.5, y: 0.5)) }
+                    Button("Default Position") { state.setHUDPosition(nil) }
+                }
+                .buttonStyle(.bordered)
+            } footer: {
+                Text("Position is measured from the left and top of the screen. You can also drag the overlay while recording.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -138,6 +160,27 @@ private struct GeneralSettings: View {
     private func applyHotkey() {
         shortcutError = state.applyHotkey()
             ? nil : String(localized: "This shortcut cannot be registered. Another app may be using it.")
+    }
+
+    private func hudPositionField(_ title: LocalizedStringKey, axis: WritableKeyPath<CGPoint, CGFloat>) -> some View {
+        let percent = Binding(
+            get: { Double(hudPosition[keyPath: axis]) * 100 },
+            set: { value in
+                guard value.isFinite else { return }
+                var position = hudPosition
+                position[keyPath: axis] = CGFloat(value.clamped(to: 0...100) / 100)
+                state.setHUDPosition(position)
+            }
+        )
+        return HStack(spacing: 4) {
+            Text(title)
+            TextField(title, value: percent, format: .number.precision(.fractionLength(0...1)))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 48)
+            Text(verbatim: "%").foregroundStyle(.secondary)
+        }
     }
 
     /// 選ぶと鳴らす。▶ でもう一度鳴らせる

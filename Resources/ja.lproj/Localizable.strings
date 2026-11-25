@@ -27,6 +27,12 @@
 "Left ⌘" = "左 ⌘";
 "Left ⌥" = "左 ⌥";
 "Microphone" = "マイク";
+"Recording Overlay" = "録音オーバーレイ";
+"Center on Screen" = "画面中央";
+"Default Position" = "初期位置";
+"Horizontal" = "横";
+"Vertical" = "縦";
+"Position is measured from the left and top of the screen. You can also drag the overlay while recording." = "画面の左端・上端からの位置です。録音中はドラッグでも移動できます。";
 "Model" = "モデル";
 "Not found" = "見つかりません";
 "Only one modifier key can be used on its own." = "修飾キーだけで登録するときは、1 つのキーにしてください。";
