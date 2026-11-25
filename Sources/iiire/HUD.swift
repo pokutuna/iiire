@@ -58,7 +58,8 @@ final class HUDController {
         case .recording:
             if case .recording = model.content {} else {
                 model.resetLevels()
-                set(.recording(startedAt: state.recordingStartedAt ?? Date(), device: state.recordingDevice))
+                set(.recording(startedAt: state.recordingStartedAt ?? Date(), device: state.recordingDevice),
+                    reselectScreen: true)
             }
         case .transcribing:
             set(.working(transcribingLabel))
@@ -108,16 +109,18 @@ final class HUDController {
         }
     }
 
-    private func set(_ content: HUDContent) {
+    private func set(_ content: HUDContent, reselectScreen: Bool = false) {
         noticeTask?.cancel()
         noticeTask = nil
         orderOutTask?.cancel()
         let panel = self.panel ?? makePanel()
-        if !panel.isVisible {
+        let needsOrdering = !panel.isVisible
+        // 前回の結果が残っていても、次の録音ではフォーカスのある画面を選び直す
+        if reselectScreen || needsOrdering {
             screen = NSScreen.main
             place()
-            panel.orderFrontRegardless()
         }
+        if needsOrdering { panel.orderFrontRegardless() }
         if case .recording = content {
             panel.ignoresMouseEvents = false
         } else {
